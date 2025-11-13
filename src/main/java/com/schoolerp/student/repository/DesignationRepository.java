@@ -1,0 +1,11 @@
+package com.schoolerp.student.repository;
+
+import com.schoolerp.staff.model.Designation;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface DesignationRepository extends JpaRepository<Designation, Long> {
+
+    Page<Designation> findByDepartmentIdAndDeletedFalse(Long departmentId, Pageable pageable);
+}
