@@ -1,5 +1,8 @@
 package com.schoolerp.student.repository;
 
-public interface ModuleRepository extends JpaRepository<Module, Long> {
+import com.schoolerp.student.entity.StudentModule;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface ModuleRepository extends JpaRepository<StudentModule, Long> {
     boolean existsByKeyNameIgnoreCase(String keyName);
 }

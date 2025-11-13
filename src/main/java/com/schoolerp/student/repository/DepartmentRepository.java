@@ -14,7 +14,7 @@ public interface DepartmentRepository extends JpaRepository<Department, Long> {
 
     @Query("""
             SELECT d FROM Department d
-            WHERE d.deleted = false 
+            WHERE d.isDelete = false 
             AND (:q IS NULL 
                 OR LOWER(d.name) LIKE LOWER(CONCAT('%',:q,'%'))
                 OR LOWER(d.code) LIKE LOWER(CONCAT('%',:q,'%')))

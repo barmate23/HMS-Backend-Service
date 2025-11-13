@@ -1,6 +1,5 @@
 package com.schoolerp.student.entity;
 
-import com.schoolerp.staff.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -8,7 +7,10 @@ import lombok.*;
 @Table(name = "permissions",
        uniqueConstraints = @UniqueConstraint(columnNames = {"role_id", "module_id"}))
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
-public class Permission extends BaseEntity {
+public class Permission {
+
+    @Id
+    private Integer id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "role_id", nullable = false)
@@ -16,7 +18,7 @@ public class Permission extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "module_id", nullable = false)
-    private Module module;
+    private StudentModule studentModule;
 
     private boolean canView;
     private boolean canCreate;

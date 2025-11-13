@@ -4,6 +4,7 @@ package com.schoolerp.student.service;
 import com.schoolerp.student.dto.DepartmentCreateRequest;
 import com.schoolerp.student.dto.DepartmentResponse;
 import com.schoolerp.student.dto.DepartmentUpdateRequest;
+import com.schoolerp.student.dto.PageResponse;
 import com.schoolerp.student.entity.Department;
 import com.schoolerp.student.repository.DepartmentRepository;
 import jakarta.ws.rs.BadRequestException;

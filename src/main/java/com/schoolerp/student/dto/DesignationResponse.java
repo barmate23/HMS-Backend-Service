@@ -1,10 +1,10 @@
 package com.schoolerp.student.dto;
 
 public record DesignationResponse(
-        Long id,
+        Integer id,
         String name,
         String description,
         boolean teaching,
-        Long departmentId,
+        Integer departmentId,
         String departmentName
 ) {}

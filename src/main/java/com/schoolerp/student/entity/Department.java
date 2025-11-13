@@ -12,6 +12,9 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 public class Department {
+    @Id
+    @Column(nullable = false)
+    private Integer id;
 
     @Column(nullable = false, unique = true)
     private String name;

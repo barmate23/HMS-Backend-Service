@@ -1,10 +1,9 @@
 package com.schoolerp.student.controller;
 
-import com.schoolerp.staff.common.PageResponse;
-import com.schoolerp.staff.dto.department.*;
-import com.schoolerp.staff.service.DepartmentService;
+import com.schoolerp.student.dto.DepartmentCreateRequest;
 import com.schoolerp.student.dto.DepartmentResponse;
 import com.schoolerp.student.dto.DepartmentUpdateRequest;
+import com.schoolerp.student.dto.PageResponse;
 import com.schoolerp.student.service.DepartmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

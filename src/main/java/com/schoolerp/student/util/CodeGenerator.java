@@ -1,6 +1,6 @@
 package com.schoolerp.student.util;
 
-import com.schoolerp.staff.repository.StaffRepository;
+import com.schoolerp.student.repository.StaffRepository;
 import org.springframework.stereotype.Component;
 
 import java.time.Year;

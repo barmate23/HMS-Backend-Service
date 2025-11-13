@@ -5,9 +5,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 
 @SpringBootApplication
-@EnableJpaAuditing
-public class StudentServiceApplication {
+public class StaffServiceApplication {
     public static void main(String[] args) {
-        SpringApplication.run(StudentServiceApplication.class, args);
+        SpringApplication.run(StaffServiceApplication.class, args);
     }
 }

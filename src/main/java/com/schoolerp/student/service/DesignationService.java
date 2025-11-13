@@ -1,12 +1,15 @@
 package com.schoolerp.student.service;
 
-import com.schoolerp.staff.common.PageResponse;
-import com.schoolerp.staff.dto.designation.*;
-import com.schoolerp.staff.exception.NotFoundException;
-import com.schoolerp.staff.model.Department;
-import com.schoolerp.staff.model.Designation;
-import com.schoolerp.staff.repository.DepartmentRepository;
-import com.schoolerp.staff.repository.DesignationRepository;
+
+import com.schoolerp.student.dto.DesignationCreateRequest;
+import com.schoolerp.student.dto.DesignationResponse;
+import com.schoolerp.student.dto.DesignationUpdateRequest;
+import com.schoolerp.student.dto.PageResponse;
+import com.schoolerp.student.entity.Department;
+import com.schoolerp.student.entity.Designation;
+import com.schoolerp.student.repository.DepartmentRepository;
+import com.schoolerp.student.repository.DesignationRepository;
+import jakarta.ws.rs.NotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
@@ -23,7 +26,7 @@ public class DesignationService {
     public DesignationResponse create(DesignationCreateRequest req) {
 
         Department department = departmentRepository.findById(req.departmentId())
-                .filter(d -> !d.isDeleted())
+                .filter(d -> !d.getIsDelete())
                 .orElseThrow(() -> new NotFoundException("Department not found"));
 
         Designation designation = Designation.builder()
@@ -51,7 +54,7 @@ public class DesignationService {
         Designation existing = find(id);
 
         Department department = departmentRepository.findById(req.departmentId())
-                .filter(d -> !d.isDeleted())
+                .filter(d -> !d.getIsDelete())
                 .orElseThrow(() -> new NotFoundException("Department not found"));
 
         existing.setName(req.name());

@@ -1,6 +1,7 @@
 package com.schoolerp.student.dto;
 
-import com.schoolerp.staff.enums.StaffStatus;
+
+import com.schoolerp.student.constants.StaffStatus;
 import jakarta.validation.constraints.*;
 import java.time.LocalDate;
 

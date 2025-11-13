@@ -1,7 +1,8 @@
 package com.schoolerp.student.repository;
 
-import com.schoolerp.staff.enums.StaffStatus;
-import com.schoolerp.staff.model.Staff;
+
+import com.schoolerp.student.constants.StaffStatus;
+import com.schoolerp.student.entity.Staff;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,7 +17,7 @@ public interface StaffRepository extends JpaRepository<Staff, Long> {
 
     @Query("""
         SELECT s FROM Staff s
-        WHERE s.deleted = false
+        WHERE s.isDeleted = false
           AND (:deptId IS NULL OR s.department.id = :deptId)
           AND (:status IS NULL OR s.status = :status)
           AND (:q IS NULL OR LOWER(CONCAT(s.firstName,' ',s.lastName,s.email)) LIKE LOWER(CONCAT('%',:q,'%')))

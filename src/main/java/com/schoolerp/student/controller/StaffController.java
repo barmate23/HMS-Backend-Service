@@ -1,9 +1,12 @@
 package com.schoolerp.student.controller;
 
-import com.schoolerp.staff.common.PageResponse;
-import com.schoolerp.staff.dto.staff.*;
-import com.schoolerp.staff.enums.StaffStatus;
-import com.schoolerp.staff.service.StaffService;
+
+import com.schoolerp.student.constants.StaffStatus;
+import com.schoolerp.student.dto.PageResponse;
+import com.schoolerp.student.dto.StaffCreateRequest;
+import com.schoolerp.student.dto.StaffResponse;
+import com.schoolerp.student.dto.StaffUpdateRequest;
+import com.schoolerp.student.service.StaffService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

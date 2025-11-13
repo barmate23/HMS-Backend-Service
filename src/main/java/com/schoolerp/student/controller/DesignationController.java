@@ -1,8 +1,11 @@
 package com.schoolerp.student.controller;
 
-import com.schoolerp.staff.common.PageResponse;
-import com.schoolerp.staff.dto.designation.*;
-import com.schoolerp.staff.service.DesignationService;
+
+import com.schoolerp.student.dto.DesignationCreateRequest;
+import com.schoolerp.student.dto.DesignationResponse;
+import com.schoolerp.student.dto.DesignationUpdateRequest;
+import com.schoolerp.student.dto.PageResponse;
+import com.schoolerp.student.service.DesignationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

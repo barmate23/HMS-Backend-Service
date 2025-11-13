@@ -1,7 +1,7 @@
 package com.schoolerp.student.dto;
 
 public record DepartmentResponse(
-        Long id,
+        Integer id,
         String name,
         String code,
         String description,

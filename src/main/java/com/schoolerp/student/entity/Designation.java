@@ -10,7 +10,11 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Designation  {
+public class Designation {
+
+    @Id
+    @Column(nullable = false)
+    private Integer id;
 
     @Column(nullable = false)
     private String name;
@@ -21,7 +25,11 @@ public class Designation  {
     @Column(nullable = false)
     private boolean teaching;
 
+    @Column(nullable = false)
+    private boolean isDeleted;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "department_id", nullable = false)
     private Department department;
+
 }

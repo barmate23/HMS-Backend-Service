@@ -1,10 +1,12 @@
 package com.schoolerp.student.dto;
 
-import com.schoolerp.staff.enums.StaffStatus;
+
+import com.schoolerp.student.constants.StaffStatus;
+
 import java.time.LocalDate;
 
 public record StaffResponse(
-        Long id,
+        Integer id,
         String staffCode,
         String firstName,
         String lastName,
@@ -13,8 +15,8 @@ public record StaffResponse(
         LocalDate dob,
         String fatherName,
         StaffStatus status,
-        Long departmentId,
+        Integer departmentId,
         String departmentName,
-        Long designationId,
+        Integer designationId,
         String designationName
 ) {}

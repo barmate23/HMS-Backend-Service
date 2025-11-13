@@ -1,13 +1,20 @@
 package com.schoolerp.student.service;
 
-import com.schoolerp.staff.common.PageResponse;
-import com.schoolerp.staff.dto.staff.*;
-import com.schoolerp.staff.enums.StaffStatus;
-import com.schoolerp.staff.exception.BadRequestException;
-import com.schoolerp.staff.exception.NotFoundException;
-import com.schoolerp.staff.model.*;
-import com.schoolerp.staff.repository.*;
-import com.schoolerp.staff.util.CodeGenerator;
+
+import com.schoolerp.student.constants.StaffStatus;
+import com.schoolerp.student.dto.PageResponse;
+import com.schoolerp.student.dto.StaffCreateRequest;
+import com.schoolerp.student.dto.StaffResponse;
+import com.schoolerp.student.dto.StaffUpdateRequest;
+import com.schoolerp.student.entity.Department;
+import com.schoolerp.student.entity.Designation;
+import com.schoolerp.student.entity.Staff;
+import com.schoolerp.student.repository.DepartmentRepository;
+import com.schoolerp.student.repository.DesignationRepository;
+import com.schoolerp.student.repository.StaffRepository;
+import com.schoolerp.student.util.CodeGenerator;
+import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.NotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
@@ -31,7 +38,7 @@ public class StaffService {
         Department dept = null;
         if (req.departmentId() != null) {
             dept = deptRepo.findById(req.departmentId())
-                    .filter(d -> !d.isDeleted())
+                    .filter(d -> !d.getIsDelete())
                     .orElseThrow(() -> new NotFoundException("Department not found"));
         }
 
@@ -81,7 +88,7 @@ public class StaffService {
         Department dept = null;
         if (req.departmentId() != null) {
             dept = deptRepo.findById(req.departmentId())
-                    .filter(d -> !d.isDeleted())
+                    .filter(d -> !d.getIsDelete())
                     .orElseThrow(() -> new NotFoundException("Department not found"));
         }
 

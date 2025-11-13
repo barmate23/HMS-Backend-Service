@@ -1,6 +1,5 @@
 package com.schoolerp.student.entity;
 
-import com.schoolerp.staff.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
 import java.util.HashSet;
@@ -9,7 +8,10 @@ import java.util.Set;
 @Entity
 @Table(name = "roles")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
-public class Role extends BaseEntity {
+public class Role  {
+
+    @Id
+    private Integer id;
 
     @Column(nullable = false, unique = true)
     private String name;
@@ -17,6 +19,4 @@ public class Role extends BaseEntity {
     @Column(length = 500)
     private String description;
 
-    @ManyToMany(mappedBy = "roles")
-    private Set<Staff> staffMembers = new HashSet<>();
 }

@@ -1,7 +1,7 @@
 package com.schoolerp.student.entity;
 
-import com.schoolerp.staff.common.BaseEntity;
-import com.schoolerp.staff.enums.StaffStatus;
+
+import com.schoolerp.student.constants.StaffStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -14,7 +14,11 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Staff extends BaseEntity {
+public class Staff  {
+
+    @Id
+    @Column(nullable = false)
+    private Integer id;
 
     @Column(nullable = false)
     private String firstName;
@@ -46,4 +50,9 @@ public class Staff extends BaseEntity {
 
     @Column(nullable = false, unique = true, length = 20)
     private String staffCode; // e.g., ACC-2025-0007
+
+    @Column(nullable = false)
+    private boolean isDeleted;
+
+
 }
