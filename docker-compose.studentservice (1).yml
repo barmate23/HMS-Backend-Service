@@ -1,0 +1,34 @@
+services:
+  studentservice:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: studentservice:latest
+    container_name: studentservice
+    ports:
+      - "8084:8084"
+    networks:
+      - updated_orgadmin_rmscadminnetwork
+    environment:
+      # Eureka Configuration
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://serviceregistry:8761/eureka
+      EUREKA_CLIENT_REGISTER_WITH_EUREKA: "true"
+      EUREKA_CLIENT_FETCH_REGISTRY: "true"
+      EUREKA_INSTANCE_LEASE_RENEWAL_INTERVAL_IN_SECONDS: "10"
+      EUREKA_INSTANCE_LEASE_EXPIRATION_DURATION_IN_SECONDS: "30"
+      EUREKA_INSTANCE_ENABLE_SELF_PRESERVATION: "false"
+
+      # Spring Actuator Endpoints
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,eureka,shutdown
+
+      # ✅ External MySQL DB Configuration (update host if needed)
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/schoolerp?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+
+    restart: on-failure
+
+networks:
+  updated_orgadmin_rmscadminnetwork:
+    external: true
