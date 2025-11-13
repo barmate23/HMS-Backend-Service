@@ -24,7 +24,7 @@ WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 
 # Expose Eureka default port
-EXPOSE 8084
+EXPOSE 8088
 
 # ✅ Fix for CgroupInfo NPE in Docker (metrics auto-config disabled)
 ENTRYPOINT java \
