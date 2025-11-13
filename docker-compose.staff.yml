@@ -3,10 +3,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: studentservice:latest
-    container_name: studentservice
+    image: staffservice:latest
+    container_name: staffservice
     ports:
-      - "8084:8084"
+      - "8088:8088"
     networks:
       - updated_orgadmin_rmscadminnetwork
     environment:
