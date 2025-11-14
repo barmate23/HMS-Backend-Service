@@ -12,7 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/departments")
+@RequestMapping("/api/staffservice/v1/departments")
 @RequiredArgsConstructor
 public class DepartmentController {
 
