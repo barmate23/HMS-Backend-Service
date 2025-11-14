@@ -3,7 +3,7 @@ server:
 
 spring:
   application:
-    name: staff-service
+    name: staffservice
 
   datasource:
     url: jdbc:mysql://localhost:3306/schoolerp?useSSL=false&serverTimezone=UTC
