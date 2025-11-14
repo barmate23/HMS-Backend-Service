@@ -2,11 +2,7 @@ pipeline {
     agent any
 
     environment {
-<<<<<<< HEAD
-        COMPOSE_FILE = "docker-compose.staff.yml"
-=======
         COMPOSE_FILE = "docker-compose.staffservice.yml"
->>>>>>> afe7cf13f49f9568f67f11dcd6ea603260819de5
         REGISTRY_CONTAINER_NAME = "serviceregistry"
         TARGET_SERVICE = "staffservice"
         TARGET_CONTAINER_NAME = "staffservice"
