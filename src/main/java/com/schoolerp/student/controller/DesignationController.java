@@ -13,7 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/v1/designations")
+@RequestMapping("/api/v1/staffservice/designations")
 @RequiredArgsConstructor
 public class DesignationController {
 
