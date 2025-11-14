@@ -13,7 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/staffservice/v1/designations")
+@RequestMapping("/api/v1/designations")
 @RequiredArgsConstructor
 public class DesignationController {
 
@@ -22,7 +22,7 @@ public class DesignationController {
     // -------------------------------------------------------------
     // CREATE
     // -------------------------------------------------------------
-    @PostMapping
+    @PostMapping("/saveDesignation")
     public StandardResponse<?> create(@Valid @RequestBody DesignationCreateRequest req) {
         return service.create(req);
     }
@@ -30,7 +30,7 @@ public class DesignationController {
     // -------------------------------------------------------------
     // LIST BY DEPARTMENT
     // -------------------------------------------------------------
-    @GetMapping
+    @GetMapping("/getDesignationByFilter")
     public StandardResponse<?> listByDepartment(
             @RequestParam Long departmentId,
             @RequestParam(defaultValue = "0") int page,
@@ -42,7 +42,7 @@ public class DesignationController {
     // -------------------------------------------------------------
     // GET BY ID
     // -------------------------------------------------------------
-    @GetMapping("/{id}")
+    @GetMapping("getDesignationById/{id}")
     public StandardResponse<?> get(@PathVariable Long id) {
         return service.get(id);
     }
@@ -50,7 +50,7 @@ public class DesignationController {
     // -------------------------------------------------------------
     // UPDATE
     // -------------------------------------------------------------
-    @PutMapping("/{id}")
+    @PutMapping("updateDesignation/{id}")
     public StandardResponse<?> update(
             @PathVariable Long id,
             @Valid @RequestBody DesignationUpdateRequest req
@@ -61,7 +61,7 @@ public class DesignationController {
     // -------------------------------------------------------------
     // DELETE
     // -------------------------------------------------------------
-    @DeleteMapping("/{id}")
+    @DeleteMapping("deleteDesignation/{id}")
     public StandardResponse<?> delete(@PathVariable Long id) {
         return service.delete(id);
     }

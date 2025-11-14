@@ -12,7 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/staffservice/v1/departments")
+@RequestMapping("/api/v1/departments")
 @RequiredArgsConstructor
 public class DepartmentController {
 
@@ -21,7 +21,7 @@ public class DepartmentController {
     // -------------------------------------------------------------
     // CREATE
     // -------------------------------------------------------------
-    @PostMapping
+    @PostMapping("/saveDepartment")
     public StandardResponse<?> create(@Valid @RequestBody DepartmentCreateRequest req) {
         return service.create(req);
     }
@@ -29,7 +29,7 @@ public class DepartmentController {
     // -------------------------------------------------------------
     // SEARCH
     // -------------------------------------------------------------
-    @GetMapping
+    @GetMapping("/getDepartmentByFilter")
     public StandardResponse<?> search(
             @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "0") int page,
@@ -41,7 +41,7 @@ public class DepartmentController {
     // -------------------------------------------------------------
     // GET BY ID
     // -------------------------------------------------------------
-    @GetMapping("/{id}")
+    @GetMapping("getDeptById/{id}")
     public StandardResponse<?> get(@PathVariable Long id) {
         return service.get(id);
     }
@@ -49,7 +49,7 @@ public class DepartmentController {
     // -------------------------------------------------------------
     // UPDATE
     // -------------------------------------------------------------
-    @PutMapping("/{id}")
+    @PutMapping("updateDepartment/{id}")
     public StandardResponse<?> update(
             @PathVariable Long id,
             @Valid @RequestBody DepartmentUpdateRequest req
@@ -60,7 +60,7 @@ public class DepartmentController {
     // -------------------------------------------------------------
     // DELETE
     // -------------------------------------------------------------
-    @DeleteMapping("/{id}")
+    @DeleteMapping("deleteDepartment/{id}")
     public StandardResponse<?> delete(@PathVariable Long id) {
         return service.delete(id);
     }

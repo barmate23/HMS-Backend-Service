@@ -14,7 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/staffservice/v1")
+@RequestMapping("/api/v1/staffservice")
 @RequiredArgsConstructor
 public class StaffController {
 
@@ -23,7 +23,7 @@ public class StaffController {
     // -------------------------------------------------------------
     // CREATE
     // -------------------------------------------------------------
-    @PostMapping
+    @PostMapping("/saveStaff")
     public StandardResponse<?> create(@Valid @RequestBody StaffCreateRequest req) {
         return service.create(req);
     }
@@ -31,7 +31,7 @@ public class StaffController {
     // -------------------------------------------------------------
     // SEARCH
     // -------------------------------------------------------------
-    @GetMapping
+    @GetMapping("/getStaffByFilter")
     public StandardResponse<?> search(
             @RequestParam(required = false) Long deptId,
             @RequestParam(required = false) StaffStatus status,
@@ -45,7 +45,7 @@ public class StaffController {
     // -------------------------------------------------------------
     // GET BY ID
     // -------------------------------------------------------------
-    @GetMapping("/{id}")
+    @GetMapping("getStaffById/{id}")
     public StandardResponse<?> get(@PathVariable Long id) {
         return service.get(id);
     }
@@ -53,7 +53,7 @@ public class StaffController {
     // -------------------------------------------------------------
     // UPDATE
     // -------------------------------------------------------------
-    @PutMapping("/{id}")
+    @PutMapping("updateStaff/{id}")
     public StandardResponse<?> update(
             @PathVariable Long id,
             @Valid @RequestBody StaffUpdateRequest req
@@ -64,7 +64,7 @@ public class StaffController {
     // -------------------------------------------------------------
     // DELETE
     // -------------------------------------------------------------
-    @DeleteMapping("/{id}")
+    @DeleteMapping("deleteStaff/{id}")
     public StandardResponse<?> delete(@PathVariable Long id) {
         return service.delete(id);
     }
