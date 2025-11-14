@@ -41,7 +41,7 @@ public class DepartmentController {
     // -------------------------------------------------------------
     // GET BY ID
     // -------------------------------------------------------------
-    @GetMapping("getDeptById/{id}")
+    @GetMapping("/getDeptById/{id}")
     public StandardResponse<?> get(@PathVariable Long id) {
         return service.get(id);
     }
@@ -49,7 +49,7 @@ public class DepartmentController {
     // -------------------------------------------------------------
     // UPDATE
     // -------------------------------------------------------------
-    @PutMapping("updateDepartment/{id}")
+    @PutMapping("/updateDepartment/{id}")
     public StandardResponse<?> update(
             @PathVariable Long id,
             @Valid @RequestBody DepartmentUpdateRequest req
@@ -60,7 +60,7 @@ public class DepartmentController {
     // -------------------------------------------------------------
     // DELETE
     // -------------------------------------------------------------
-    @DeleteMapping("deleteDepartment/{id}")
+    @DeleteMapping("/deleteDepartment/{id}")
     public StandardResponse<?> delete(@PathVariable Long id) {
         return service.delete(id);
     }

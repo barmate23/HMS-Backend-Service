@@ -42,7 +42,7 @@ public class DesignationController {
     // -------------------------------------------------------------
     // GET BY ID
     // -------------------------------------------------------------
-    @GetMapping("getDesignationById/{id}")
+    @GetMapping("/getDesignationById/{id}")
     public StandardResponse<?> get(@PathVariable Long id) {
         return service.get(id);
     }
@@ -50,7 +50,7 @@ public class DesignationController {
     // -------------------------------------------------------------
     // UPDATE
     // -------------------------------------------------------------
-    @PutMapping("updateDesignation/{id}")
+    @PutMapping("/updateDesignation/{id}")
     public StandardResponse<?> update(
             @PathVariable Long id,
             @Valid @RequestBody DesignationUpdateRequest req
@@ -61,7 +61,7 @@ public class DesignationController {
     // -------------------------------------------------------------
     // DELETE
     // -------------------------------------------------------------
-    @DeleteMapping("deleteDesignation/{id}")
+    @DeleteMapping("/deleteDesignation/{id}")
     public StandardResponse<?> delete(@PathVariable Long id) {
         return service.delete(id);
     }

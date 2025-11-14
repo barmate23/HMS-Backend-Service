@@ -45,7 +45,7 @@ public class StaffController {
     // -------------------------------------------------------------
     // GET BY ID
     // -------------------------------------------------------------
-    @GetMapping("getStaffById/{id}")
+    @GetMapping("/getStaffById/{id}")
     public StandardResponse<?> get(@PathVariable Long id) {
         return service.get(id);
     }
@@ -53,7 +53,7 @@ public class StaffController {
     // -------------------------------------------------------------
     // UPDATE
     // -------------------------------------------------------------
-    @PutMapping("updateStaff/{id}")
+    @PutMapping("/updateStaff/{id}")
     public StandardResponse<?> update(
             @PathVariable Long id,
             @Valid @RequestBody StaffUpdateRequest req
@@ -64,7 +64,7 @@ public class StaffController {
     // -------------------------------------------------------------
     // DELETE
     // -------------------------------------------------------------
-    @DeleteMapping("deleteStaff/{id}")
+    @DeleteMapping("/deleteStaff/{id}")
     public StandardResponse<?> delete(@PathVariable Long id) {
         return service.delete(id);
     }
