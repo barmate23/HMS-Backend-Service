@@ -1,5 +1,6 @@
 package com.schoolerp.student.controller;
 
+import com.schoolerp.student.common.StandardResponse;
 import com.schoolerp.student.dto.DepartmentCreateRequest;
 import com.schoolerp.student.dto.DepartmentResponse;
 import com.schoolerp.student.dto.DepartmentUpdateRequest;
@@ -17,14 +18,19 @@ public class DepartmentController {
 
     private final DepartmentService service;
 
+    // -------------------------------------------------------------
+    // CREATE
+    // -------------------------------------------------------------
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public DepartmentResponse create(@Valid @RequestBody DepartmentCreateRequest req) {
+    public StandardResponse<?> create(@Valid @RequestBody DepartmentCreateRequest req) {
         return service.create(req);
     }
 
+    // -------------------------------------------------------------
+    // SEARCH
+    // -------------------------------------------------------------
     @GetMapping
-    public PageResponse<DepartmentResponse> search(
+    public StandardResponse<?> search(
             @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
@@ -32,23 +38,31 @@ public class DepartmentController {
         return service.search(q, page, size);
     }
 
+    // -------------------------------------------------------------
+    // GET BY ID
+    // -------------------------------------------------------------
     @GetMapping("/{id}")
-    public DepartmentResponse get(@PathVariable Long id) {
+    public StandardResponse<?> get(@PathVariable Long id) {
         return service.get(id);
     }
 
+    // -------------------------------------------------------------
+    // UPDATE
+    // -------------------------------------------------------------
     @PutMapping("/{id}")
-    public DepartmentResponse update(
+    public StandardResponse<?> update(
             @PathVariable Long id,
             @Valid @RequestBody DepartmentUpdateRequest req
     ) {
         return service.update(id, req);
     }
 
+    // -------------------------------------------------------------
+    // DELETE
+    // -------------------------------------------------------------
     @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable Long id) {
-        service.delete(id);
+    public StandardResponse<?> delete(@PathVariable Long id) {
+        return service.delete(id);
     }
 }
 

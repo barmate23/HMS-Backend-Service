@@ -1,6 +1,7 @@
 package com.schoolerp.student.service;
 
 
+import com.schoolerp.student.common.StandardResponse;
 import com.schoolerp.student.dto.DesignationCreateRequest;
 import com.schoolerp.student.dto.DesignationResponse;
 import com.schoolerp.student.dto.DesignationUpdateRequest;
@@ -23,54 +24,124 @@ public class DesignationService {
     private final DesignationRepository repository;
     private final DepartmentRepository departmentRepository;
 
-    public DesignationResponse create(DesignationCreateRequest req) {
+    // -------------------------------------------------------------
+    // CREATE
+    // -------------------------------------------------------------
+    public StandardResponse create(DesignationCreateRequest req) {
 
         Department department = departmentRepository.findById(req.departmentId())
                 .filter(d -> !d.getIsDelete())
-                .orElseThrow(() -> new NotFoundException("Department not found"));
+                .orElse(null);
+
+        if (department == null) {
+            return StandardResponse.error(
+                    "Department not found",
+                    "DEPARTMENT_NOT_FOUND",
+                    "departmentId",
+                    "The provided departmentId does not exist"
+            );
+        }
 
         Designation designation = Designation.builder()
                 .name(req.name())
                 .description(req.description())
                 .teaching(req.teaching())
                 .department(department)
+                .isDeleted(false)
                 .build();
 
         designation = repository.save(designation);
-        return toResp(designation);
+
+        return StandardResponse.success(
+                toResp(designation),
+                "Designation created successfully"
+        );
     }
 
-    public PageResponse<DesignationResponse> listByDepartment(Long departmentId, int page, int size) {
+    // -------------------------------------------------------------
+    // LIST BY DEPARTMENT (Pagination)
+    // -------------------------------------------------------------
+    public StandardResponse<PageResponse<DesignationResponse>> listByDepartment(Long departmentId, int page, int size) {
+
         Pageable pageable = PageRequest.of(page, size, Sort.by("name").ascending());
         Page<Designation> result = repository.findByDepartmentIdAndDeletedFalse(departmentId, pageable);
-        return PageResponse.from(result.map(this::toResp));
+
+        PageResponse<DesignationResponse> pageResponse = PageResponse.from(result.map(this::toResp));
+
+        StandardResponse.ResponseMetadata meta =
+                StandardResponse.ResponseMetadata.builder()
+                        .totalRecords(result.getTotalElements())
+                        .totalPages(result.getTotalPages())
+                        .currentPage(page)
+                        .pageSize(size)
+                        .operation("LIST_DESIGNATIONS_BY_DEPARTMENT")
+                        .build();
+
+        return StandardResponse.success(
+                pageResponse,
+                "Designations fetched successfully",
+                meta
+        );
     }
 
-    public DesignationResponse get(Long id) {
-        return toResp(find(id));
+    // -------------------------------------------------------------
+    // GET BY ID
+    // -------------------------------------------------------------
+    public StandardResponse<DesignationResponse> get(Long id) {
+        Designation d = find(id);
+        return StandardResponse.success(
+                toResp(d),
+                "Designation fetched successfully"
+        );
     }
 
-    public DesignationResponse update(Long id, DesignationUpdateRequest req) {
+    // -------------------------------------------------------------
+    // UPDATE
+    // -------------------------------------------------------------
+    public StandardResponse update(Long id, DesignationUpdateRequest req) {
+
         Designation existing = find(id);
 
         Department department = departmentRepository.findById(req.departmentId())
-                .filter(d -> !d.getIsDelete())
-                .orElseThrow(() -> new NotFoundException("Department not found"));
+                .filter(x -> !x.getIsDelete())
+                .orElse(null);
+
+        if (department == null) {
+            return StandardResponse.error(
+                    "Department not found",
+                    "DEPARTMENT_NOT_FOUND",
+                    "departmentId",
+                    "Invalid department selected"
+            );
+        }
 
         existing.setName(req.name());
         existing.setDescription(req.description());
         existing.setTeaching(req.teaching());
         existing.setDepartment(department);
 
-        return toResp(repository.save(existing));
+        repository.save(existing);
+
+        return StandardResponse.success(
+                toResp(existing),
+                "Designation updated successfully"
+        );
     }
 
-    public void delete(Long id) {
+    // -------------------------------------------------------------
+    // DELETE (Soft Delete)
+    // -------------------------------------------------------------
+    public StandardResponse<Void> delete(Long id) {
         Designation d = find(id);
         d.setDeleted(true);
         repository.save(d);
+
+        return StandardResponse.success("Designation deleted successfully");
     }
 
+    // -------------------------------------------------------------
+    // UTILITIES
+    // -------------------------------------------------------------
     private Designation find(Long id) {
         return repository.findById(id)
                 .filter(x -> !x.isDeleted())

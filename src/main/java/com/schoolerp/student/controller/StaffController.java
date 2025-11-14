@@ -1,6 +1,7 @@
 package com.schoolerp.student.controller;
 
 
+import com.schoolerp.student.common.StandardResponse;
 import com.schoolerp.student.constants.StaffStatus;
 import com.schoolerp.student.dto.PageResponse;
 import com.schoolerp.student.dto.StaffCreateRequest;
@@ -19,14 +20,19 @@ public class StaffController {
 
     private final StaffService service;
 
+    // -------------------------------------------------------------
+    // CREATE
+    // -------------------------------------------------------------
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public StaffResponse create(@Valid @RequestBody StaffCreateRequest req) {
+    public StandardResponse<?> create(@Valid @RequestBody StaffCreateRequest req) {
         return service.create(req);
     }
 
+    // -------------------------------------------------------------
+    // SEARCH
+    // -------------------------------------------------------------
     @GetMapping
-    public PageResponse<StaffResponse> search(
+    public StandardResponse<?> search(
             @RequestParam(required = false) Long deptId,
             @RequestParam(required = false) StaffStatus status,
             @RequestParam(required = false) String q,
@@ -36,19 +42,30 @@ public class StaffController {
         return service.search(deptId, status, q, page, size);
     }
 
+    // -------------------------------------------------------------
+    // GET BY ID
+    // -------------------------------------------------------------
     @GetMapping("/{id}")
-    public StaffResponse get(@PathVariable Long id) {
+    public StandardResponse<?> get(@PathVariable Long id) {
         return service.get(id);
     }
 
+    // -------------------------------------------------------------
+    // UPDATE
+    // -------------------------------------------------------------
     @PutMapping("/{id}")
-    public StaffResponse update(@PathVariable Long id, @Valid @RequestBody StaffUpdateRequest req) {
+    public StandardResponse<?> update(
+            @PathVariable Long id,
+            @Valid @RequestBody StaffUpdateRequest req
+    ) {
         return service.update(id, req);
     }
 
+    // -------------------------------------------------------------
+    // DELETE
+    // -------------------------------------------------------------
     @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable Long id) {
-        service.delete(id);
+    public StandardResponse<?> delete(@PathVariable Long id) {
+        return service.delete(id);
     }
 }

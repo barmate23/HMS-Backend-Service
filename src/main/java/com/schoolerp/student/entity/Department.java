@@ -13,7 +13,7 @@ import lombok.*;
 @Builder
 public class Department {
     @Id
-    @Column(nullable = false)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
     @Column(nullable = false, unique = true)

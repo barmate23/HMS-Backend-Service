@@ -1,6 +1,7 @@
 package com.schoolerp.student.service;
 
 
+import com.schoolerp.student.common.StandardResponse;
 import com.schoolerp.student.constants.StaffStatus;
 import com.schoolerp.student.dto.PageResponse;
 import com.schoolerp.student.dto.StaffCreateRequest;
@@ -24,31 +25,61 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional
 public class StaffService {
-
     private final StaffRepository repo;
     private final DepartmentRepository deptRepo;
     private final DesignationRepository desigRepo;
     private final CodeGenerator codeGen;
 
-    public StaffResponse create(StaffCreateRequest req) {
+    // -------------------------------------------------------------
+    // CREATE
+    // -------------------------------------------------------------
+    public StandardResponse create(StaffCreateRequest req) {
 
-        if (repo.existsByEmailIgnoreCase(req.email()))
-            throw new BadRequestException("Email already exists");
+        // Validate duplicate email
+        if (repo.existsByEmailIgnoreCase(req.email())) {
+            return StandardResponse.error(
+                    "Email already exists",
+                    "DUPLICATE_EMAIL",
+                    "email",
+                    "Another staff already uses this email id"
+            );
+        }
 
+        // Validate Department
         Department dept = null;
         if (req.departmentId() != null) {
             dept = deptRepo.findById(req.departmentId())
                     .filter(d -> !d.getIsDelete())
-                    .orElseThrow(() -> new NotFoundException("Department not found"));
+                    .orElse(null);
+
+            if (dept == null) {
+                return StandardResponse.error(
+                        "Department not found",
+                        "DEPARTMENT_NOT_FOUND",
+                        "departmentId",
+                        "Invalid department selected"
+                );
+            }
         }
 
+        // Validate Designation
         Designation desig = null;
         if (req.designationId() != null) {
             desig = desigRepo.findById(req.designationId())
                     .filter(d -> !d.isDeleted())
-                    .orElseThrow(() -> new NotFoundException("Designation not found"));
+                    .orElse(null);
+
+            if (desig == null) {
+                return StandardResponse.error(
+                        "Designation not found",
+                        "DESIGNATION_NOT_FOUND",
+                        "designationId",
+                        "Invalid designation selected"
+                );
+            }
         }
 
+        // Generate staff code
         String deptCode = (dept != null) ? dept.getCode() : "GEN";
         String staffCode = codeGen.generate(deptCode);
 
@@ -63,61 +94,178 @@ public class StaffService {
                 .fatherName(req.fatherName())
                 .status(req.status() != null ? req.status() : StaffStatus.ACTIVE)
                 .staffCode(staffCode)
+                .isDeleted(false)
                 .build();
 
-        return toResp(repo.save(s));
+        repo.save(s);
+
+        return StandardResponse.success(
+                toResp(s),
+                "Staff created successfully"
+        );
     }
 
-    public PageResponse<StaffResponse> search(Long deptId, StaffStatus status, String q, int page, int size) {
+    // -------------------------------------------------------------
+    // SEARCH (Paginated)
+    // -------------------------------------------------------------
+    public StandardResponse<PageResponse<StaffResponse>> search(
+            Long deptId,
+            StaffStatus status,
+            String q,
+            int page,
+            int size
+    ) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("firstName").ascending());
+
         Page<Staff> result = repo.search(deptId, status, q, pageable);
-        return PageResponse.from(result.map(this::toResp));
+
+        PageResponse<StaffResponse> pageData = PageResponse.from(result.map(this::toResp));
+
+        StandardResponse.ResponseMetadata meta =
+                StandardResponse.ResponseMetadata.builder()
+                        .totalRecords(result.getTotalElements())
+                        .totalPages(result.getTotalPages())
+                        .pageSize(size)
+                        .currentPage(page)
+                        .operation("SEARCH_STAFF")
+                        .build();
+
+        return StandardResponse.success(
+                pageData,
+                "Staff list fetched successfully",
+                meta
+        );
     }
 
-    public StaffResponse get(Long id) {
-        return toResp(find(id));
+    // -------------------------------------------------------------
+    // GET BY ID
+    // -------------------------------------------------------------
+    public StandardResponse get(Long id) {
+
+        Staff s;
+        try {
+            s = find(id);
+        } catch (NotFoundException ex) {
+            return StandardResponse.error(
+                    "Staff not found",
+                    "STAFF_NOT_FOUND",
+                    "id",
+                    "Invalid staff id"
+            );
+        }
+
+        return StandardResponse.success(
+                toResp(s),
+                "Staff fetched successfully"
+        );
     }
 
-    public StaffResponse update(Long id, StaffUpdateRequest req) {
-        Staff s = find(id);
+    // -------------------------------------------------------------
+    // UPDATE
+    // -------------------------------------------------------------
+    public StandardResponse update(Long id, StaffUpdateRequest req) {
 
-        if (!s.getEmail().equalsIgnoreCase(req.email()) &&
-                repo.existsByEmailIgnoreCase(req.email()))
-            throw new BadRequestException("Email already exists");
+        Staff existing;
+        try {
+            existing = find(id);
+        } catch (NotFoundException ex) {
+            return StandardResponse.error(
+                    "Staff not found",
+                    "STAFF_NOT_FOUND",
+                    "id",
+                    "Invalid staff id"
+            );
+        }
 
+        // Email validation
+        if (!existing.getEmail().equalsIgnoreCase(req.email()) &&
+                repo.existsByEmailIgnoreCase(req.email())) {
+
+            return StandardResponse.error(
+                    "Email already exists",
+                    "DUPLICATE_EMAIL",
+                    "email",
+                    "Another staff already uses this email"
+            );
+        }
+
+        // Validate Department
         Department dept = null;
         if (req.departmentId() != null) {
             dept = deptRepo.findById(req.departmentId())
                     .filter(d -> !d.getIsDelete())
-                    .orElseThrow(() -> new NotFoundException("Department not found"));
+                    .orElse(null);
+
+            if (dept == null) {
+                return StandardResponse.error(
+                        "Department not found",
+                        "DEPARTMENT_NOT_FOUND",
+                        "departmentId",
+                        "Invalid department selected"
+                );
+            }
         }
 
+        // Validate Designation
         Designation desig = null;
         if (req.designationId() != null) {
             desig = desigRepo.findById(req.designationId())
                     .filter(d -> !d.isDeleted())
-                    .orElseThrow(() -> new NotFoundException("Designation not found"));
+                    .orElse(null);
+
+            if (desig == null) {
+                return StandardResponse.error(
+                        "Designation not found",
+                        "DESIGNATION_NOT_FOUND",
+                        "designationId",
+                        "Invalid designation selected"
+                );
+            }
         }
 
-        s.setFirstName(req.firstName());
-        s.setLastName(req.lastName());
-        s.setEmail(req.email());
-        s.setPhone(req.phone());
-        s.setDob(req.dob());
-        s.setDepartment(dept);
-        s.setDesignation(desig);
-        s.setFatherName(req.fatherName());
-        s.setStatus(req.status());
+        existing.setFirstName(req.firstName());
+        existing.setLastName(req.lastName());
+        existing.setEmail(req.email());
+        existing.setPhone(req.phone());
+        existing.setDob(req.dob());
+        existing.setDepartment(dept);
+        existing.setDesignation(desig);
+        existing.setFatherName(req.fatherName());
+        existing.setStatus(req.status());
 
-        return toResp(repo.save(s));
+        repo.save(existing);
+
+        return StandardResponse.success(
+                toResp(existing),
+                "Staff updated successfully"
+        );
     }
 
-    public void delete(Long id) {
-        Staff s = find(id);
+    // -------------------------------------------------------------
+    // DELETE (Soft Delete)
+    // -------------------------------------------------------------
+    public StandardResponse<Void> delete(Long id) {
+        Staff s;
+        try {
+            s = find(id);
+        } catch (NotFoundException ex) {
+            return StandardResponse.error(
+                    "Staff not found",
+                    "STAFF_NOT_FOUND",
+                    "id",
+                    "Invalid staff id"
+            );
+        }
+
         s.setDeleted(true);
         repo.save(s);
+
+        return StandardResponse.success("Staff deleted successfully");
     }
 
+    // -------------------------------------------------------------
+    // UTILITIES
+    // -------------------------------------------------------------
     private Staff find(Long id) {
         return repo.findById(id)
                 .filter(x -> !x.isDeleted())

@@ -17,7 +17,7 @@ import java.time.LocalDate;
 public class Staff  {
 
     @Id
-    @Column(nullable = false)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
     @Column(nullable = false)

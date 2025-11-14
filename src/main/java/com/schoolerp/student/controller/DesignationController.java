@@ -1,6 +1,7 @@
 package com.schoolerp.student.controller;
 
 
+import com.schoolerp.student.common.StandardResponse;
 import com.schoolerp.student.dto.DesignationCreateRequest;
 import com.schoolerp.student.dto.DesignationResponse;
 import com.schoolerp.student.dto.DesignationUpdateRequest;
@@ -18,14 +19,19 @@ public class DesignationController {
 
     private final DesignationService service;
 
+    // -------------------------------------------------------------
+    // CREATE
+    // -------------------------------------------------------------
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public DesignationResponse create(@Valid @RequestBody DesignationCreateRequest req) {
+    public StandardResponse<?> create(@Valid @RequestBody DesignationCreateRequest req) {
         return service.create(req);
     }
 
+    // -------------------------------------------------------------
+    // LIST BY DEPARTMENT
+    // -------------------------------------------------------------
     @GetMapping
-    public PageResponse<DesignationResponse> listByDepartment(
+    public StandardResponse<?> listByDepartment(
             @RequestParam Long departmentId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
@@ -33,22 +39,30 @@ public class DesignationController {
         return service.listByDepartment(departmentId, page, size);
     }
 
+    // -------------------------------------------------------------
+    // GET BY ID
+    // -------------------------------------------------------------
     @GetMapping("/{id}")
-    public DesignationResponse get(@PathVariable Long id) {
+    public StandardResponse<?> get(@PathVariable Long id) {
         return service.get(id);
     }
 
+    // -------------------------------------------------------------
+    // UPDATE
+    // -------------------------------------------------------------
     @PutMapping("/{id}")
-    public DesignationResponse update(
+    public StandardResponse<?> update(
             @PathVariable Long id,
             @Valid @RequestBody DesignationUpdateRequest req
     ) {
         return service.update(id, req);
     }
 
+    // -------------------------------------------------------------
+    // DELETE
+    // -------------------------------------------------------------
     @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable Long id) {
-        service.delete(id);
+    public StandardResponse<?> delete(@PathVariable Long id) {
+        return service.delete(id);
     }
 }

@@ -9,6 +9,7 @@ import lombok.*;
 public class StudentModule {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
     @Column(nullable = false, unique = true)
