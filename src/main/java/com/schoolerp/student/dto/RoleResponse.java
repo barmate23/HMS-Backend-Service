@@ -1,3 +1,3 @@
 package com.schoolerp.student.dto;
 
-public record RoleResponse(Long id, String name, String description) {}
+public record RoleResponse(Integer id, String name, String description) {}

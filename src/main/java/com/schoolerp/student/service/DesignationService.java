@@ -64,7 +64,7 @@ public class DesignationService {
     public StandardResponse<PageResponse<DesignationResponse>> listByDepartment(Long departmentId, int page, int size) {
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("name").ascending());
-        Page<Designation> result = repository.findByDepartmentIdAndDeletedFalse(departmentId, pageable);
+        Page<Designation> result = repository.findByDepartmentIdAndIsDeletedFalse(departmentId, pageable);
 
         PageResponse<DesignationResponse> pageResponse = PageResponse.from(result.map(this::toResp));
 

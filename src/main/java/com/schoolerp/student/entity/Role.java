@@ -2,12 +2,15 @@ package com.schoolerp.student.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import java.util.HashSet;
-import java.util.Set;
+
 
 @Entity
 @Table(name = "roles")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Role  {
 
     @Id
@@ -17,7 +20,13 @@ public class Role  {
     @Column(nullable = false, unique = true)
     private String name;
 
+    @Column(nullable = false, unique = true)
+    private String code;
+
     @Column(length = 500)
     private String description;
+
+    @Column(nullable = false)
+    private boolean isDeleted;
 
 }
