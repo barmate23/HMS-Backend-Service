@@ -1,8 +1,8 @@
 package com.schoolerp.student.dto;
 
 public record PermissionResponse(
-        Long id,
-        Long moduleId,
+        Integer id,
+        Integer moduleId,
         String moduleName,
         boolean canView,
         boolean canCreate,

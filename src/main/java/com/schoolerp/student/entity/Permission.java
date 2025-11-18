@@ -17,9 +17,9 @@ public class Permission {
     @JoinColumn(name = "role_id", nullable = false)
     private Role role;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "module_id", nullable = false)
-    private StudentModule studentModule;
+   @ManyToOne
+   @JoinColumn(name = "sub_module_id", nullable = false)
+   private SubModule subModule;
 
     private boolean canView;
     private boolean canCreate;
