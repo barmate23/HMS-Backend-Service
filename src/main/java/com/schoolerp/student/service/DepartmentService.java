@@ -7,7 +7,9 @@ import com.schoolerp.student.dto.DepartmentResponse;
 import com.schoolerp.student.dto.DepartmentUpdateRequest;
 import com.schoolerp.student.dto.PageResponse;
 import com.schoolerp.student.entity.Department;
+import com.schoolerp.student.entity.Designation;
 import com.schoolerp.student.repository.DepartmentRepository;
+import com.schoolerp.student.repository.DesignationRepository;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.NotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -15,12 +17,15 @@ import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class DepartmentService {
 
     private final DepartmentRepository repository;
+    private final DesignationRepository designationRepository;
 
     // -------------------------------------------------------------
     // CREATE
@@ -163,12 +168,14 @@ public class DepartmentService {
     }
 
     private DepartmentResponse toResp(Department d) {
+        List<Designation> designationList = designationRepository.findByDepartmentIdAndIsDeleted(d.getId(), false);
         return new DepartmentResponse(
                 d.getId(),
                 d.getName(),
                 d.getCode(),
                 d.getDescription(),
-                d.getHodId()
+                d.getHodId(),
+                designationList.size()
         );
     }
 }

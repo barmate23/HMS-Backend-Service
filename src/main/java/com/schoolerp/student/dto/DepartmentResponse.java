@@ -5,5 +5,6 @@ public record DepartmentResponse(
         String name,
         String code,
         String description,
-        Long hodId
+        Long hodId,
+        Integer designationsCount
 ) {}

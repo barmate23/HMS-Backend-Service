@@ -6,5 +6,9 @@ public record DesignationResponse(
         String description,
         boolean teaching,
         Integer departmentId,
-        String departmentName
-) {}
+        String departmentName,
+        String hodName,
+        String hodDesignation,
+        String hodImgUrl
+) {
+}
