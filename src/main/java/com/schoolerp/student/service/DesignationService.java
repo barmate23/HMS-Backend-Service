@@ -155,11 +155,7 @@ public class DesignationService {
                 d.getDescription(),
                 d.isTeaching(),
                 d.getDepartment() != null ? d.getDepartment().getId() : null,
-                d.getDepartment() != null ? d.getDepartment().getName() : null,
-                "amol",
-                "Hod",
-                "this is base 64 response we ned to give "
+                d.getDepartment() != null ? d.getDepartment().getName() : null
         );
     }
 }
-

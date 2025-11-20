@@ -6,5 +6,8 @@ public record DepartmentResponse(
         String code,
         String description,
         Long hodId,
-        Integer designationsCount
+        Integer designationsCount,
+        String hodName,
+        String hodDesignation,
+        String hodImgUrl
 ) {}
