@@ -232,6 +232,7 @@ public class StaffService {
         existing.setDepartment(dept);
         existing.setDesignation(desig);
         existing.setFatherName(req.fatherName());
+        existing.setStaffImage(req.staffImage());
         existing.setStatus(req.status());
 
         repo.save(existing);
