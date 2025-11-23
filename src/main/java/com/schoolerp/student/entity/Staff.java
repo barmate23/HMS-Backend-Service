@@ -51,6 +51,13 @@ public class Staff  {
     @Column(nullable = false, unique = true, length = 20)
     private String staffCode; // e.g., ACC-2025-0007
 
+
+    @Column
+    @Lob
+    private byte[] staffImage; // e.g., ACC-2025-0007
+
+
+
     @Column(nullable = false)
     private boolean isDeleted;
 

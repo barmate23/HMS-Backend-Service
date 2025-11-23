@@ -14,5 +14,6 @@ public record StaffCreateRequest(
         Long departmentId,
         Long designationId,
         String fatherName,
-        StaffStatus status
+        StaffStatus status,
+        byte[] staffImage
 ) {}

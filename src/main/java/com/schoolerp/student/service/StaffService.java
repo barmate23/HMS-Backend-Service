@@ -94,6 +94,7 @@ public class StaffService {
                 .fatherName(req.fatherName())
                 .status(req.status() != null ? req.status() : StaffStatus.ACTIVE)
                 .staffCode(staffCode)
+                .staffImage(req.staffImage())
                 .isDeleted(false)
                 .build();
 
@@ -286,7 +287,8 @@ public class StaffService {
                 s.getDepartment() != null ? s.getDepartment().getId() : null,
                 s.getDepartment() != null ? s.getDepartment().getName() : null,
                 s.getDesignation() != null ? s.getDesignation().getId() : null,
-                s.getDesignation() != null ? s.getDesignation().getName() : null
+                s.getDesignation() != null ? s.getDesignation().getName() : null,
+                s.getStaffImage()
         );
     }
 }

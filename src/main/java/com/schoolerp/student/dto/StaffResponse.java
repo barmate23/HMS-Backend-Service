@@ -18,5 +18,6 @@ public record StaffResponse(
         Integer departmentId,
         String departmentName,
         Integer designationId,
-        String designationName
+        String designationName,
+        byte[] staffImage
 ) {}

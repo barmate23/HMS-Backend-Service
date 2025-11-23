@@ -5,8 +5,13 @@ import com.schoolerp.student.common.StandardResponse;
 import com.schoolerp.student.dto.RoleCreateRequest;
 import com.schoolerp.student.dto.RoleResponse;
 import com.schoolerp.student.dto.RoleUpdateRequest;
+import com.schoolerp.student.dto.StaffResponse;
 import com.schoolerp.student.entity.Role;
+import com.schoolerp.student.entity.RoleStaffMapper;
+import com.schoolerp.student.entity.Staff;
 import com.schoolerp.student.repository.RoleRepository;
+import com.schoolerp.student.repository.RoleStaffMapperRepository;
+import com.schoolerp.student.repository.StaffRepository;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.NotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -14,12 +19,17 @@ import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class RoleService {
 
     private final RoleRepository repo;
+ private final StaffRepository staffRepo;
+ private final RoleStaffMapperRepository roleStaffMapperRepository;
 
     public StandardResponse create(RoleCreateRequest req) {
 
@@ -40,6 +50,13 @@ public class RoleService {
                 .build();
 
         r = repo.save(r);
+        for (Integer id : req.StaffIds()) {
+            RoleStaffMapper roleStaffMapper = new RoleStaffMapper();
+            roleStaffMapper.setRole(r);
+            roleStaffMapper.setStaff(staffRepo.findById(Long.valueOf(id)).get());
+            roleStaffMapper.setDeleted(false);
+            roleStaffMapperRepository.save(roleStaffMapper);
+        }
 
         return StandardResponse.success(
                 toResp(r),
@@ -91,6 +108,13 @@ public class RoleService {
 
         r = repo.save(r);
 
+        for (Integer staffId : req.StaffIds()) {
+            RoleStaffMapper roleStaffMapper = new RoleStaffMapper();
+            roleStaffMapper.setRole(r);
+            roleStaffMapper.setStaff(staffRepo.findById(Long.valueOf(staffId)).get());
+            roleStaffMapper.setDeleted(false);
+            roleStaffMapperRepository.save(roleStaffMapper);
+        }
         return StandardResponse.success(
                 toResp(r),
                 "Role updated successfully"
@@ -116,7 +140,36 @@ public class RoleService {
                 r.getId(),
                 r.getName(),
                 r.getCode(),
-                r.getDescription()
+                r.getDescription(),
+                toStaffResponse(r.getId())
+        );
+    }
+
+    private List<StaffResponse> toStaffResponse(Integer id) {
+        List<StaffResponse> staffResponseList = new ArrayList<>();
+        List<RoleStaffMapper> roleStaffMapperList =  roleStaffMapperRepository.findByIsDeletedAndRoleId(false, id);
+        for(RoleStaffMapper roleStaffMapper : roleStaffMapperList) {
+            staffResponseList.add(toStfResp(roleStaffMapper.getStaff()));
+        }
+        return staffResponseList;
+    }
+
+    private StaffResponse toStfResp(Staff s) {
+        return new StaffResponse(
+                s.getId(),
+                s.getStaffCode(),
+                s.getFirstName(),
+                s.getLastName(),
+                s.getEmail(),
+                s.getPhone(),
+                s.getDob(),
+                s.getFatherName(),
+                s.getStatus(),
+                s.getDepartment() != null ? s.getDepartment().getId() : null,
+                s.getDepartment() != null ? s.getDepartment().getName() : null,
+                s.getDesignation() != null ? s.getDesignation().getId() : null,
+                s.getDesignation() != null ? s.getDesignation().getName() : null,
+                s.getStaffImage()
         );
     }
 }
