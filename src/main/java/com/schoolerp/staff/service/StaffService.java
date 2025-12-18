@@ -86,26 +86,26 @@ public class StaffService {
         String staffCode = codeGen.generate(deptCode);
         String password = codeGen.generatePassword();
         String encodedPassword =  password;
-        RestTemplate rest = new RestTemplate();
-
-        Map<String, Object> vars = Map.of(
-                "name", req.firstName() + " " + req.lastName(),
-                "username", req.username(),
-                "password", encodedPassword
-        );
-
-        EmailRequest request = new EmailRequest(
-                req.email(),
-                "Your Login Credentials",
-                "credentials",
-                vars
-        );
-
-        rest.postForObject(
-                "http://email-service:8092/api/email/send",
-                request,
-                String.class
-        );
+//        RestTemplate rest = new RestTemplate();
+//
+//        Map<String, Object> vars = Map.of(
+//                "name", req.firstName() + " " + req.lastName(),
+//                "username", req.username(),
+//                "password", encodedPassword
+//        );
+//
+//        EmailRequest request = new EmailRequest(
+//                req.email(),
+//                "Your Login Credentials",
+//                "credentials",
+//                vars
+//        );
+//
+//        rest.postForObject(
+//                "http://email-service:8092/api/email/send",
+//                request,
+//                String.class
+//        );
 
         UserEntity s = UserEntity.builder()
                 .firstName(req.firstName())
