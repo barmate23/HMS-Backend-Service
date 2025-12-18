@@ -36,7 +36,6 @@ public class StaffService {
     // CREATE
     // -------------------------------------------------------------
     public StandardResponse create(StaffCreateRequest req) {
-
         // Validate duplicate email
         if (staffRepository.existsByEmailIgnoreCase(req.email())) {
             return StandardResponse.error(
