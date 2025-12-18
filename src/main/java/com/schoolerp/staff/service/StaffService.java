@@ -29,7 +29,6 @@ import java.util.Map;
 public class StaffService {
     private final StaffRepository staffRepository;
     private final DepartmentRepository deptRepo;
-    private PasswordEncoder  passwordEncoder;
     private final DesignationRepository desigRepo;
     private final CodeGenerator codeGen;
 
@@ -86,7 +85,7 @@ public class StaffService {
         String deptCode = (dept != null) ? dept.getCode() : "GEN";
         String staffCode = codeGen.generate(deptCode);
         String password = codeGen.generatePassword();
-        String encodedPassword =  passwordEncoder.encode(password);
+        String encodedPassword =  password;
         RestTemplate rest = new RestTemplate();
 
         Map<String, Object> vars = Map.of(
