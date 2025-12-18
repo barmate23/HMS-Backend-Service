@@ -63,7 +63,8 @@ public class PermissionService {
                 .orElseThrow(() -> new NotFoundException("Role not found"));
 
         // Delete previous permissions
-        permissionRepository.deleteByRoleId(roleId);
+        List<Permission> permissionList = permissionRepository.findByRoleId(roleId);
+        permissionRepository.deleteAll(permissionList);
 
         for (PermissionRequest req : list) {
             SubModule subModule = subModuleRepo.findById(req.subModuleId())
