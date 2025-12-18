@@ -4,6 +4,7 @@ package com.schoolerp.staff.controller;
 import com.schoolerp.staff.common.StandardResponse;
 import com.schoolerp.staff.dto.ModuleWithSubmodulesResponse;
 import com.schoolerp.staff.dto.PermissionRequest;
+import com.schoolerp.staff.dto.UserPermissionResponse;
 import com.schoolerp.staff.service.PermissionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -43,5 +44,13 @@ public class PermissionController {
     @GetMapping("/getModuleList")
     public StandardResponse<List<ModuleWithSubmodulesResponse>> getModulesWithSubModules() {
         return service.getAllModulesWithSubmodules();
+    }
+
+    /**
+     * Get all modules with their submodules
+     */
+    @GetMapping("/getUserPermission")
+    public StandardResponse<List<UserPermissionResponse>> getUserPermission() {
+        return service.getUserPermission();
     }
 }

@@ -1,31 +1,24 @@
 package com.schoolerp.staff.service;
 
 import com.schoolerp.staff.common.StandardResponse;
-import com.schoolerp.staff.dto.ModuleWithSubmodulesResponse;
-import com.schoolerp.staff.dto.PermissionRequest;
-import com.schoolerp.staff.dto.PermissionResponse;
-import com.schoolerp.staff.dto.SubModuleResponse;
-import com.schoolerp.staff.entity.Modules;
-import com.schoolerp.staff.entity.Permission;
-import com.schoolerp.staff.entity.Role;
-import com.schoolerp.staff.entity.SubModule;
-import com.schoolerp.staff.repository.ModulesRepository;
-import com.schoolerp.staff.repository.PermissionRepository;
-import com.schoolerp.staff.repository.RoleRepository;
-import com.schoolerp.staff.repository.SubModuleRepository;
+import com.schoolerp.staff.dto.*;
+import com.schoolerp.staff.entity.*;
+import com.schoolerp.staff.repository.*;
 import jakarta.ws.rs.NotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class PermissionService {
 
+    private final RoleStaffMapperRepository roleStaffMapperRepository;
     private final PermissionRepository permissionRepository;
     private final RoleRepository roleRepository;
     private final ModulesRepository moduleRepo;
@@ -64,20 +57,31 @@ public class PermissionService {
 
         // Delete previous permissions
         List<Permission> permissionList = permissionRepository.findByRoleId(roleId);
-        permissionRepository.deleteAll(permissionList);
+        Map<Integer, Permission> permissionMap = new HashMap<>();
+        if (permissionList != null) {
+            permissionMap = permissionList.stream().collect(Collectors.toMap(k -> k.getSubModule().getId(), v -> v));
 
+        }
         for (PermissionRequest req : list) {
             SubModule subModule = subModuleRepo.findById(req.subModuleId())
                     .orElseThrow(() -> new NotFoundException("Submodule not found"));
+            Permission p = permissionMap.get(subModule.getId());
+            if (p == null) {
+                p = Permission.builder()
+                        .role(role)
+                        .subModule(subModule)
+                        .canView(req.canView())
+                        .canCreate(req.canCreate())
+                        .canEdit(req.canEdit())
+                        .canDelete(req.canDelete())
+                        .build();
+            } else {
+                p.setCanCreate(req.canCreate());
+                p.setCanDelete(req.canDelete());
+                p.setCanEdit(req.canEdit());
+                p.setCanView(req.canView());
+            }
 
-            Permission p = Permission.builder()
-                    .role(role)
-                    .subModule(subModule)
-                    .canView(req.canView())
-                    .canCreate(req.canCreate())
-                    .canEdit(req.canEdit())
-                    .canDelete(req.canDelete())
-                    .build();
 
             permissionRepository.save(p);
         }
@@ -122,6 +126,38 @@ public class PermissionService {
         );
     }
 
+    public StandardResponse<List<UserPermissionResponse>> getUserPermission() {
+        RoleStaffMapper roleStaffMapper = roleStaffMapperRepository.findByIsDeletedAndStaffId(false, 1);
+        List<Permission> permissionList = permissionRepository.findByRoleId(Long.parseLong(Integer.toString(roleStaffMapper.getRole().getId())));
+        List<UserPermissionResponse> permissionResponseList = new ArrayList<>();
+
+        Map<Integer, List<Permission>> modulePermissionMapper = permissionList.stream().collect(Collectors.groupingBy(k -> k.getSubModule().getModules().getId()));
+
+        for (Map.Entry<Integer, List<Permission>> modulePermissionMap : modulePermissionMapper.entrySet()) {
+            List<Permission> permissions = modulePermissionMap.getValue();
+            List<UserSubModuleResponse> userSubModuleResponseList =
+                    permissions.stream()
+                            .map(permission -> new UserSubModuleResponse(
+                                    permission.getSubModule().getId(),
+                                    permission.getSubModule().getSubModuleCode(),
+                                    permission.getSubModule().getSubModuleName(),
+                                    new PermissionUserResponse(
+                                            permission.isCanView(),
+                                            permission.isCanCreate(),
+                                            permission.isCanEdit(),
+                                            permission.isCanDelete()
+                                    )
+                            ))
+                            .toList();
+            UserPermissionResponse userPermissionResponse = new UserPermissionResponse(permissions.get(0).getId(), permissions.get(0).getSubModule().getModules().getName(), permissions.get(0).getSubModule().getModules().getKeyName(), userSubModuleResponseList);
+            permissionResponseList.add(userPermissionResponse);
+        }
+        return StandardResponse.success(
+                permissionResponseList,
+                "Permissions fetched successfully"
+        );
+    }
+
     private PermissionResponse toResp(Permission p) {
         return new PermissionResponse(
                 p.getId(),
@@ -133,4 +169,6 @@ public class PermissionService {
                 p.isCanDelete()
         );
     }
+
+
 }

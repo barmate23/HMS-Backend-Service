@@ -7,6 +7,8 @@ import java.util.List;
 
 public interface RoleStaffMapperRepository extends JpaRepository<RoleStaffMapper, Long> {
     List<RoleStaffMapper> findByIsDeletedAndRoleId(boolean isDeleted, Integer roleId);
+
+    RoleStaffMapper findByIsDeletedAndStaffId(boolean b, int i);
 }
 
 
