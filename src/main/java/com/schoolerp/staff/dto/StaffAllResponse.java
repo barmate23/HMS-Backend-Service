@@ -7,5 +7,7 @@ import java.time.LocalDate;
 
 public record StaffAllResponse(
         Integer id,
-        String fullName
+        String fullName,
+        Integer departmentId,
+        String departmentName
 ) {}

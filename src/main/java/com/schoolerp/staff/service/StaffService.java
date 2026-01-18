@@ -192,7 +192,7 @@ public class StaffService {
 
         List<StaffAllResponse> staffAllResponseList = new ArrayList<>();
         staffList.forEach(staff -> {
-            StaffAllResponse staffAllResponse = new StaffAllResponse(staff.getId(), staff.getFirstName() + " " + staff.getLastName());
+            StaffAllResponse staffAllResponse = new StaffAllResponse(staff.getId(), staff.getFirstName() + " " + staff.getLastName(), staff.getDepartment().getId(), staff.getDepartment().getName());
             staffAllResponseList.add(staffAllResponse);
         });
         return StandardResponse.success(
