@@ -45,6 +45,14 @@ public class StaffController {
     ) {
         return service.getAllStaff();
     }
+
+
+    @GetMapping("/getAllTeachers")
+    public StandardResponse<?> getAllTeachers(
+
+    ) {
+        return service.getAllTeachers();
+    }
     // -------------------------------------------------------------
     // GET BY ID
     // -------------------------------------------------------------

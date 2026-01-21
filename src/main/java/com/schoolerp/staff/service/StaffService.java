@@ -28,6 +28,7 @@ import java.util.Map;
 @Transactional
 public class StaffService {
     private final StaffRepository staffRepository;
+    private final PasswordEncoder encoder;
     private final DepartmentRepository deptRepo;
     private final DesignationRepository desigRepo;
     private final CodeGenerator codeGen;
@@ -84,27 +85,27 @@ public class StaffService {
         String deptCode = (dept != null) ? dept.getCode() : "GEN";
         String staffCode = codeGen.generate(deptCode);
         String password = codeGen.generatePassword();
-        String encodedPassword =  password;
-//        RestTemplate rest = new RestTemplate();
-//
-//        Map<String, Object> vars = Map.of(
-//                "name", req.firstName() + " " + req.lastName(),
-//                "username", req.username(),
-//                "password", encodedPassword
-//        );
-//
-//        EmailRequest request = new EmailRequest(
-//                req.email(),
-//                "Your Login Credentials",
-//                "credentials",
-//                vars
-//        );
-//
-//        rest.postForObject(
-//                "http://email-service:8092/api/email/send",
-//                request,
-//                String.class
-//        );
+        String encodedPassword =  encoder.encode(password);
+        RestTemplate rest = new RestTemplate();
+
+        Map<String, Object> vars = Map.of(
+                "name", req.firstName() + " " + req.lastName(),
+                "username", req.email(),
+                "password", password
+        );
+
+        EmailRequest request = new EmailRequest(
+                req.email(),
+                "Your Login Credentials",
+                "credentials",
+                vars
+        );
+
+        rest.postForObject(
+                "http://localhost:8092/api/email/send",
+                request,
+                String.class
+        );
 
         UserEntity s = UserEntity.builder()
                 .firstName(req.firstName())
@@ -329,6 +330,20 @@ public class StaffService {
                 s.getDesignation() != null ? s.getDesignation().getId() : null,
                 s.getDesignation() != null ? s.getDesignation().getName() : null,
                 s.getStaffImage()
+        );
+    }
+
+    public StandardResponse<?> getAllTeachers() {
+        List<UserEntity> staffList = staffRepository.findByIsDeletedAndDesignationNameAndStatus(false, "Teacher", StaffStatus.ACTIVE);
+
+        List<StaffAllResponse> staffAllResponseList = new ArrayList<>();
+        staffList.forEach(staff -> {
+            StaffAllResponse staffAllResponse = new StaffAllResponse(staff.getId(), staff.getFirstName() + " " + staff.getLastName(), staff.getDepartment().getId(), staff.getDepartment().getName());
+            staffAllResponseList.add(staffAllResponse);
+        });
+        return StandardResponse.success(
+                staffAllResponseList,
+                "Staff created successfully"
         );
     }
 }

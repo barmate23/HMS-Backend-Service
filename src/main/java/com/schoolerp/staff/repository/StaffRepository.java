@@ -9,6 +9,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
+
 public interface StaffRepository extends JpaRepository<UserEntity, Long> {
 
     boolean existsByEmailIgnoreCase(String email);
@@ -27,4 +29,6 @@ public interface StaffRepository extends JpaRepository<UserEntity, Long> {
                             @Param("status") StaffStatus status,
                             @Param("q") String q,
                             Pageable pageable);
+
+    List<UserEntity> findByIsDeletedAndDesignationNameAndStatus(boolean b, String teacher, StaffStatus active);
 }

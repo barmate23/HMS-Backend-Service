@@ -53,7 +53,7 @@ logging:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%X{logId:-}] [%X{requestId:-}] [%X{operation:-}] %-5level %logger{36} - %msg%n"
     file: "%d{yyyy-MM-dd HH:mm:ss} [%X{logId:-}] [%X{requestId:-}] [%X{operation:-}] [%thread] %-5level %logger{36} - %msg%n"
   file:
-    name: logs/student-service.log
+    name: logs/staf-service.log
 
 aws:
   accessKey: AKIAYM45RKJWHBW67LQW
