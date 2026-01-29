@@ -104,11 +104,11 @@ public class StaffServiceImpl implements StaffService{
                 vars
         );
 
-        rest.postForObject(
-                "http://localhost:8092/api/email/send",
-                request,
-                String.class
-        );
+//        rest.postForObject(
+//                "http://localhost:8092/api/email/send",
+//                request,
+//                String.class
+//        );
 
         UserEntity user = UserEntity.builder()
                 .firstName(req.firstName())
