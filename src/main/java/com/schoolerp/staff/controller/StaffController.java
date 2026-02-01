@@ -32,11 +32,11 @@ public class StaffController {
     public StandardResponse<?> search(
             @RequestParam(required = false) Long deptId,
             @RequestParam(required = false) StaffStatus status,
-            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        return service.search(deptId, status, q, page, size);
+        return service.search(deptId, status, search, page, size);
     }
 
     @GetMapping("/getAllStaff")
