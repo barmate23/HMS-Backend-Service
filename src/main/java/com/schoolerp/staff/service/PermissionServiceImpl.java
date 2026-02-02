@@ -138,8 +138,13 @@ public class PermissionServiceImpl implements PermissionService{
         String loggedInUser = UserContext.getUser();
         System.out.println("User = " + loggedInUser);
         RoleStaffMapper roleStaffMapper = roleStaffMapperRepository.findByIsDeletedAndStaffEmail(false, loggedInUser);
-        List<Permission> permissionList = permissionRepository.findByRoleId(Long.parseLong(Integer.toString(roleStaffMapper.getRole().getId())));
         List<UserPermissionResponse> permissionResponseList = new ArrayList<>();
+
+        List<Permission> permissionList = permissionRepository
+                .findByRoleId(Long.parseLong(Integer.toString(roleStaffMapper.getRole().getId())))
+                .stream()
+                .filter(p -> p.isCanView() || p.isCanCreate() || p.isCanEdit() || p.isCanDelete())
+                .toList();
 
         Map<Integer, List<Permission>> modulePermissionMapper = permissionList.stream().collect(Collectors.groupingBy(k -> k.getSubModule().getModules().getId()));
 
