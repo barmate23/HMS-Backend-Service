@@ -1,6 +1,8 @@
 package com.schoolerp.staff.service;
 
 import com.schoolerp.staff.common.StandardResponse;
+
+import com.schoolerp.staff.config.UserContext;
 import com.schoolerp.staff.dto.*;
 import com.schoolerp.staff.entity.*;
 import com.schoolerp.staff.repository.*;
@@ -28,6 +30,7 @@ public class PermissionServiceImpl implements PermissionService{
     private final RoleRepository roleRepository;
     private final ModulesRepository moduleRepo;
     private final SubModuleRepository subModuleRepo;
+
 
     /**
      * List permissions of a specific role
@@ -132,7 +135,9 @@ public class PermissionServiceImpl implements PermissionService{
     }
 
     public StandardResponse<List<UserPermissionResponse>> getUserPermission() {
-        RoleStaffMapper roleStaffMapper = roleStaffMapperRepository.findByIsDeletedAndStaffId(false, 1);
+        String loggedInUser = UserContext.getUser();
+        System.out.println("User = " + loggedInUser);
+        RoleStaffMapper roleStaffMapper = roleStaffMapperRepository.findByIsDeletedAndStaffEmail(false, loggedInUser);
         List<Permission> permissionList = permissionRepository.findByRoleId(Long.parseLong(Integer.toString(roleStaffMapper.getRole().getId())));
         List<UserPermissionResponse> permissionResponseList = new ArrayList<>();
 

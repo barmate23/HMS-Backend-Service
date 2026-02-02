@@ -9,6 +9,8 @@ public interface RoleStaffMapperRepository extends JpaRepository<RoleStaffMapper
     List<RoleStaffMapper> findByIsDeletedAndRoleId(boolean isDeleted, Integer roleId);
 
     RoleStaffMapper findByIsDeletedAndStaffId(boolean b, int i);
+
+    RoleStaffMapper findByIsDeletedAndStaffEmail(boolean b, String email);
 }
 
 

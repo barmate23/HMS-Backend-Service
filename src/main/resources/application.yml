@@ -6,7 +6,7 @@ spring:
     name: staffservice
 
   datasource:
-    url: jdbc:mysql://localhost:3306/schoolerp?useSSL=false&serverTimezone=UTC
+    url: jdbc:mysql://100.96.183.108:3306/schoolerp?useSSL=false&serverTimezone=UTC
     username: root
     password: root
     driver-class-name: com.mysql.cj.jdbc.Driver
