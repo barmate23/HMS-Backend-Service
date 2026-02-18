@@ -31,12 +31,13 @@ public class StaffController {
     @GetMapping("/getStaffByFilter")
     public StandardResponse<?> search(
             @RequestParam(required = false) Long deptId,
+            @RequestParam(required = false) Long designation,
             @RequestParam(required = false) StaffStatus status,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        return service.search(deptId, status, search, page, size);
+        return service.search(deptId,designation, status, search, page, size);
     }
 
     @GetMapping("/getAllStaff")

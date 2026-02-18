@@ -141,14 +141,14 @@ public class StaffServiceImpl implements StaffService{
     // -------------------------------------------------------------
     public StandardResponse<PageResponse<StaffResponse>> search(
             Long deptId,
-            StaffStatus status,
+            Long designation, StaffStatus status,
             String q,
             int page,
             int size
     ) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("firstName").ascending());
 
-        Page<UserEntity> result = userRepository.search(deptId, status, q, pageable);
+        Page<UserEntity> result = userRepository.search(deptId,designation, status, q, pageable);
 
         PageResponse<StaffResponse> pageData = PageResponse.from(result.map(this::toResp));
 
