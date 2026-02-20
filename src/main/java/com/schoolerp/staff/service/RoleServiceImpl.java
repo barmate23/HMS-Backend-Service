@@ -186,6 +186,8 @@ public class RoleServiceImpl implements RoleService {
                 staff.getDepartment() != null ? staff.getDepartment().getName() : null,
                 staff.getDesignation() != null ? staff.getDesignation().getId() : null,
                 staff.getDesignation() != null ? staff.getDesignation().getName() : null,
+                null,
+                null,
                 staff.getStaffImage());
     }
 }
