@@ -401,6 +401,7 @@ public class StaffServiceImpl implements StaffService {
                                 s.getDepartment() != null ? s.getDepartment().getName() : null,
                                 s.getDesignation() != null ? s.getDesignation().getId() : null,
                                 s.getDesignation() != null ? s.getDesignation().getName() : null,
+                                s.getLicenseNumber()!= null ? s.getLicenseNumber() : null,
                                 s.getStaffImage());
         }
 
