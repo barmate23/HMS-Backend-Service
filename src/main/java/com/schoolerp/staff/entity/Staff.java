@@ -47,16 +47,55 @@ public class Staff {
     private StaffStatus status = StaffStatus.ACTIVE;
 
     @Column(nullable = false, unique = true, length = 20)
-    private String staffCode; // e.g., ACC-2025-0007
+    private String staffCode;
 
+    @Column(length = 100)
+    private String licenseNumber;
 
-    @Column
     @Lob
-    private byte[] staffImage; // e.g., ACC-2025-0007
-
+    private byte[] staffImage;
 
     @Column(nullable = false)
     private boolean isDeleted;
 
+    /* ================= BANK DETAILS ================= */
+
+    @Column(length = 100)
+    private String bankName;
+
+    @Column(length = 100)
+    private String accountHolderName;
+
+    @Column(length = 30)
+    private String accountNumber;
+
+    @Column(length = 20)
+    private String ifscCode;
+
+    @Column(length = 100)
+    private String branchName;
+
+    @Column(length = 100)
+    private String upiId;
+
+    /* ================= ADDRESS DETAILS ================= */
+
+    @Column(length = 255)
+    private String addressLine1;
+
+    @Column(length = 255)
+    private String addressLine2;
+
+    @Column(length = 100)
+    private String city;
+
+    @Column(length = 100)
+    private String state;
+
+    @Column(length = 100)
+    private String country;
+
+    @Column(length = 20)
+    private String postalCode;
 
 }

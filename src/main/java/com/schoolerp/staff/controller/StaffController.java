@@ -31,7 +31,7 @@ public class StaffController {
     @GetMapping("/getStaffByFilter")
     public StandardResponse<?> search(
             @RequestParam(required = false) Long deptId,
-            @RequestParam(required = false) Long designation,
+            @RequestParam(required = false) String designation,
             @RequestParam(required = false) StaffStatus status,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,

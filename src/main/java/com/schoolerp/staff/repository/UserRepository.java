@@ -15,21 +15,4 @@ public interface UserRepository extends JpaRepository<UserEntity, Long> {
 
     boolean existsByEmailIgnoreCase(String email);
     UserEntity findById(Integer id);
-
-    boolean existsByStaffCode(String staffCode);
-
-    @Query("""
-        SELECT s FROM UserEntity s
-        WHERE s.isDeleted = false
-          AND (:deptId IS NULL OR s.department.id = :deptId)
-          AND (:designationId IS NULL OR s.designation.id = :designationId)
-          AND (:status IS NULL OR s.status = :status)
-          AND (:q IS NULL OR LOWER(CONCAT(s.firstName,' ',s.lastName,s.email)) LIKE LOWER(CONCAT('%',:q,'%')))
-        """)
-    Page<UserEntity> search(@Param("deptId") Long deptId,
-                            @Param("designationId") Long designation, @Param("status") StaffStatus status,
-                            @Param("q") String q,
-                            Pageable pageable);
-
-    List<UserEntity> findByIsDeletedAndDesignationNameAndStatus(boolean b, String teacher, StaffStatus active);
 }

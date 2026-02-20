@@ -1,5 +1,6 @@
 package com.schoolerp.staff.util;
 
+import com.schoolerp.staff.repository.StaffRepository;
 import com.schoolerp.staff.repository.UserRepository;
 import org.springframework.stereotype.Component;
 
@@ -9,10 +10,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Component
 public class CodeGenerator {
 
-    private final UserRepository repo;
+    private final StaffRepository repo;
     private final AtomicInteger counter = new AtomicInteger(1);
 
-    public CodeGenerator(UserRepository repo) {
+    public CodeGenerator(StaffRepository repo) {
         this.repo = repo;
     }
 

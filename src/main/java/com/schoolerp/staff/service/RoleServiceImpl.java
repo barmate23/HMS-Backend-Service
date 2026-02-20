@@ -1,6 +1,5 @@
 package com.schoolerp.staff.service;
 
-
 import com.schoolerp.staff.common.StandardResponse;
 import com.schoolerp.staff.dto.RoleCreateRequest;
 import com.schoolerp.staff.dto.RoleResponse;
@@ -8,6 +7,7 @@ import com.schoolerp.staff.dto.RoleUpdateRequest;
 import com.schoolerp.staff.dto.StaffResponse;
 import com.schoolerp.staff.entity.Role;
 import com.schoolerp.staff.entity.RoleStaffMapper;
+import com.schoolerp.staff.entity.Staff;
 import com.schoolerp.staff.entity.UserEntity;
 import com.schoolerp.staff.repository.RoleRepository;
 import com.schoolerp.staff.repository.RoleStaffMapperRepository;
@@ -27,11 +27,11 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class RoleServiceImpl implements RoleService{
+public class RoleServiceImpl implements RoleService {
 
     private final RoleRepository repo;
- private final UserRepository staffRepo;
- private final RoleStaffMapperRepository roleStaffMapperRepository;
+    private final UserRepository staffRepo;
+    private final RoleStaffMapperRepository roleStaffMapperRepository;
 
     public StandardResponse create(RoleCreateRequest req) {
 
@@ -40,8 +40,7 @@ public class RoleServiceImpl implements RoleService{
                     "Role name already exists",
                     "VALIDATION_ERROR",
                     "name",
-                    "A role with this name already exists"
-            );
+                    "A role with this name already exists");
         }
 
         Role r = Role.builder()
@@ -52,14 +51,17 @@ public class RoleServiceImpl implements RoleService{
                 .build();
 
         List<RoleStaffMapper> roleStaffMapperList = new ArrayList<>();
-        for (Integer id : req.StaffIds()) {
-            RoleStaffMapper roleStaffMapper = new RoleStaffMapper();
-            roleStaffMapper.setRole(r);
-            UserEntity staff = staffRepo.findById(id);
-
-            roleStaffMapper.setStaff(staff);
-            roleStaffMapper.setDeleted(false);
-            roleStaffMapperList.add(roleStaffMapper);
+        if (req.StaffIds() != null) {
+            for (Integer id : req.StaffIds()) {
+                UserEntity staff = staffRepo.findById(id);
+                if (staff != null) {
+                    RoleStaffMapper roleStaffMapper = new RoleStaffMapper();
+                    roleStaffMapper.setRole(r);
+                    roleStaffMapper.setStaff(staff);
+                    roleStaffMapper.setDeleted(false);
+                    roleStaffMapperList.add(roleStaffMapper);
+                }
+            }
         }
 
         r = repo.save(r);
@@ -67,8 +69,7 @@ public class RoleServiceImpl implements RoleService{
 
         return StandardResponse.success(
                 toResp(r),
-                "Role created successfully"
-        );
+                "Role created successfully");
     }
 
     public StandardResponse<Page<RoleResponse>> list(int page, int size) {
@@ -78,14 +79,13 @@ public class RoleServiceImpl implements RoleService{
 
         Page<RoleResponse> mapped = p.map(this::toResp);
 
-        StandardResponse.ResponseMetadata meta =
-                StandardResponse.ResponseMetadata.builder()
-                        .totalRecords(p.getTotalElements())
-                        .totalPages(p.getTotalPages())
-                        .currentPage(page)
-                        .pageSize(size)
-                        .operation("Role List")
-                        .build();
+        StandardResponse.ResponseMetadata meta = StandardResponse.ResponseMetadata.builder()
+                .totalRecords(p.getTotalElements())
+                .totalPages(p.getTotalPages())
+                .currentPage(page)
+                .pageSize(size)
+                .operation("Role List")
+                .build();
 
         return StandardResponse.success(mapped, "Roles fetched successfully", meta);
     }
@@ -105,8 +105,7 @@ public class RoleServiceImpl implements RoleService{
                     "Role name already exists",
                     "VALIDATION_ERROR",
                     "name",
-                    "A role with this name already exists"
-            );
+                    "A role with this name already exists");
         }
 
         role.setName(req.name());
@@ -115,20 +114,25 @@ public class RoleServiceImpl implements RoleService{
 
         role = repo.save(role);
 
-        List<RoleStaffMapper> roleStaffMapperList = roleStaffMapperRepository.findByIsDeletedAndRoleId(false, role.getId());
+        List<RoleStaffMapper> roleStaffMapperList = roleStaffMapperRepository.findByIsDeletedAndRoleId(false,
+                role.getId());
 
         roleStaffMapperRepository.deleteAll(roleStaffMapperList);
-        for (Integer staffId : req.StaffIds()) {
-            RoleStaffMapper roleStaffMapper = new RoleStaffMapper();
-            roleStaffMapper.setRole(role);
-            roleStaffMapper.setStaff(staffRepo.findById(Long.valueOf(staffId)).get());
-            roleStaffMapper.setDeleted(false);
-            roleStaffMapperRepository.save(roleStaffMapper);
+        if (req.StaffIds() != null) {
+            for (Integer staffId : req.StaffIds()) {
+                UserEntity staff = staffRepo.findById(staffId);
+                if (staff != null) {
+                    RoleStaffMapper roleStaffMapper = new RoleStaffMapper();
+                    roleStaffMapper.setRole(role);
+                    roleStaffMapper.setStaff(staff);
+                    roleStaffMapper.setDeleted(false);
+                    roleStaffMapperRepository.save(roleStaffMapper);
+                }
+            }
         }
         return StandardResponse.success(
                 toResp(role),
-                "Role updated successfully"
-        );
+                "Role updated successfully");
     }
 
     public StandardResponse<Void> delete(Long id) {
@@ -151,35 +155,37 @@ public class RoleServiceImpl implements RoleService{
                 r.getName(),
                 r.getCode(),
                 r.getDescription(),
-                toStaffResponse(r.getId())
-        );
+                toStaffResponse(r.getId()));
     }
 
     private List<StaffResponse> toStaffResponse(Integer id) {
         List<StaffResponse> staffResponseList = new ArrayList<>();
-        List<RoleStaffMapper> roleStaffMapperList =  roleStaffMapperRepository.findByIsDeletedAndRoleId(false, id);
-        for(RoleStaffMapper roleStaffMapper : roleStaffMapperList) {
+        List<RoleStaffMapper> roleStaffMapperList = roleStaffMapperRepository.findByIsDeletedAndRoleId(false, id);
+        for (RoleStaffMapper roleStaffMapper : roleStaffMapperList) {
             staffResponseList.add(toStfResp(roleStaffMapper.getStaff()));
         }
         return staffResponseList;
     }
 
     private StaffResponse toStfResp(UserEntity s) {
+        if (s == null || s.getStaff() == null) {
+            return null;
+        }
+        Staff staff = s.getStaff();
         return new StaffResponse(
                 s.getId(),
-                s.getStaffCode(),
-                s.getFirstName(),
-                s.getLastName(),
-                s.getEmail(),
-                s.getPhone(),
-                s.getDob(),
-                s.getFatherName(),
-                s.getStatus(),
-                s.getDepartment() != null ? s.getDepartment().getId() : null,
-                s.getDepartment() != null ? s.getDepartment().getName() : null,
-                s.getDesignation() != null ? s.getDesignation().getId() : null,
-                s.getDesignation() != null ? s.getDesignation().getName() : null,
-                s.getStaffImage()
-        );
+                staff.getStaffCode(),
+                staff.getFirstName(),
+                staff.getLastName(),
+                staff.getEmail(),
+                staff.getPhone(),
+                staff.getDob(),
+                staff.getFatherName(),
+                staff.getStatus(),
+                staff.getDepartment() != null ? staff.getDepartment().getId() : null,
+                staff.getDepartment() != null ? staff.getDepartment().getName() : null,
+                staff.getDesignation() != null ? staff.getDesignation().getId() : null,
+                staff.getDesignation() != null ? staff.getDesignation().getName() : null,
+                staff.getStaffImage());
     }
 }

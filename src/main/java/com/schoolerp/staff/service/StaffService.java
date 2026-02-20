@@ -21,7 +21,7 @@ public interface StaffService {
     // -------------------------------------------------------------
     public StandardResponse<PageResponse<StaffResponse>> search(
             Long deptId,
-            Long designation, StaffStatus status,
+            String designation, StaffStatus status,
             String q,
             int page,
             int size
