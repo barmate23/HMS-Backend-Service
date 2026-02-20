@@ -19,5 +19,6 @@ public record StaffResponse(
                 Integer designationId,
                 String designationName,
                 String licenseNumber,
+                String vehicleNumber,
                 byte[] staffImage) {
 }
