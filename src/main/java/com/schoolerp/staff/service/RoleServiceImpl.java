@@ -11,6 +11,7 @@ import com.schoolerp.staff.entity.Staff;
 import com.schoolerp.staff.entity.UserEntity;
 import com.schoolerp.staff.repository.RoleRepository;
 import com.schoolerp.staff.repository.RoleStaffMapperRepository;
+import com.schoolerp.staff.repository.StaffRepository;
 import com.schoolerp.staff.repository.UserRepository;
 import jakarta.ws.rs.NotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -30,8 +31,10 @@ import java.util.List;
 public class RoleServiceImpl implements RoleService {
 
     private final RoleRepository repo;
-    private final UserRepository staffRepo;
+    private final StaffRepository staffRepo;
+    private final UserRepository userRepository;
     private final RoleStaffMapperRepository roleStaffMapperRepository;
+    private UserEntity userEntity;
 
     public StandardResponse create(RoleCreateRequest req) {
 
@@ -53,11 +56,12 @@ public class RoleServiceImpl implements RoleService {
         List<RoleStaffMapper> roleStaffMapperList = new ArrayList<>();
         if (req.StaffIds() != null) {
             for (Integer id : req.StaffIds()) {
-                UserEntity staff = staffRepo.findById(id);
+                Staff staff = staffRepo.findById(id.longValue()).get();
+                UserEntity userEntity = userRepository.findByStaffId(staff.getId());
                 if (staff != null) {
                     RoleStaffMapper roleStaffMapper = new RoleStaffMapper();
                     roleStaffMapper.setRole(r);
-                    roleStaffMapper.setStaff(staff);
+                    roleStaffMapper.setStaff(userEntity);
                     roleStaffMapper.setDeleted(false);
                     roleStaffMapperList.add(roleStaffMapper);
                 }
@@ -120,11 +124,13 @@ public class RoleServiceImpl implements RoleService {
         roleStaffMapperRepository.deleteAll(roleStaffMapperList);
         if (req.StaffIds() != null) {
             for (Integer staffId : req.StaffIds()) {
-                UserEntity staff = staffRepo.findById(staffId);
+                Staff staff = staffRepo.findById(staffId.longValue()).get();
+                UserEntity userEntity = userRepository.findByStaffId(staff.getId());
+
                 if (staff != null) {
                     RoleStaffMapper roleStaffMapper = new RoleStaffMapper();
                     roleStaffMapper.setRole(role);
-                    roleStaffMapper.setStaff(staff);
+                    roleStaffMapper.setStaff(userEntity);
                     roleStaffMapper.setDeleted(false);
                     roleStaffMapperRepository.save(roleStaffMapper);
                 }
