@@ -54,8 +54,8 @@ public class RoleServiceImpl implements RoleService {
                 .build();
 
         List<RoleStaffMapper> roleStaffMapperList = new ArrayList<>();
-        if (req.StaffIds() != null) {
-            for (Integer id : req.StaffIds()) {
+        if (req.staffIds() != null) {
+            for (Integer id : req.staffIds()) {
                 Staff staff = staffRepo.findById(id.longValue()).get();
                 UserEntity userEntity = userRepository.findByStaffId(staff.getId());
                 if (staff != null) {
@@ -122,8 +122,8 @@ public class RoleServiceImpl implements RoleService {
                 role.getId());
 
         roleStaffMapperRepository.deleteAll(roleStaffMapperList);
-        if (req.StaffIds() != null) {
-            for (Integer staffId : req.StaffIds()) {
+        if (req.staffIds() != null) {
+            for (Integer staffId : req.staffIds()) {
                 Staff staff = staffRepo.findById(staffId.longValue()).get();
                 UserEntity userEntity = userRepository.findByStaffId(staff.getId());
 
