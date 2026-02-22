@@ -33,7 +33,7 @@ public class PermissionController {
     /**
      * Save/Update all permissions for a role
      */
-    @PostMapping("/savePermisions/{roleId}")
+    @PostMapping("/savePermissions/{roleId}")
     public StandardResponse<Void> saveAll(@PathVariable Long roleId, @RequestBody List<PermissionRequest> list) {
         return service.saveAll(roleId, list);
     }
