@@ -41,8 +41,8 @@ pipeline {
                         sh "docker rmi -f ${TARGET_IMAGE_NAME} || true"
 
                         // ✅ Use docker-compose (with hyphen) for build and up
-                        sh "docker compose -f ${COMPOSE_FILE} build ${TARGET_SERVICE}"
-                        sh "docker compose -f ${COMPOSE_FILE} up -d ${TARGET_SERVICE}"
+                        sh "docker-compose -f ${COMPOSE_FILE} build ${TARGET_SERVICE}"
+                        sh "docker-compose -f ${COMPOSE_FILE} up -d ${TARGET_SERVICE}"
                     } else {
                         error "${REGISTRY_CONTAINER_NAME} is not running. Aborting deployment of ${TARGET_SERVICE}."
                     }
