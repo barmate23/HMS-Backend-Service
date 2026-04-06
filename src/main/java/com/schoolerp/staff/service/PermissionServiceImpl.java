@@ -140,7 +140,7 @@ public class PermissionServiceImpl implements PermissionService{
         RoleStaffMapper roleStaffMapper = roleStaffMapperRepository.findByIsDeletedAndStaffEmail(false, loggedInUser);
         List<UserPermissionResponse> permissionResponseList = new ArrayList<>();
 
-       String designation = roleStaffMapper.getStaff().getStaff().getDesignation().getName();
+       String designation = roleStaffMapper.getStaff().getStaff() != null ? roleStaffMapper.getStaff().getStaff().getDesignation().getName() : "System Administrator";
         List<Permission> permissionList = permissionRepository
                 .findByRoleId(Long.parseLong(Integer.toString(roleStaffMapper.getRole().getId())))
                 .stream()
