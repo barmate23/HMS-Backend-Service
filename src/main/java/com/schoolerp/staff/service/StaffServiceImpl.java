@@ -138,7 +138,11 @@ public class StaffServiceImpl implements StaffService {
         }
 
         // 7️⃣ Create User Account
-        String password = codeGen.generatePassword();
+        // Use mobile number as password if available, otherwise generate password
+        String password = (req.phone() != null && !req.phone().trim().isEmpty()) 
+                ? req.phone() 
+                : codeGen.generatePassword();
+        
         String encodedPassword = encoder.encode(password);
 
         UserEntity user = UserEntity.builder()
@@ -158,7 +162,7 @@ public class StaffServiceImpl implements StaffService {
 
         return StandardResponse.success(
                 toResp(staff),
-                "Staff created successfully");
+                "Staff created successfully with user account (Password: " + password + ")");
     }
 
     private void sendCredentialsEmail(StaffCreateRequest req, String password) {
@@ -237,8 +241,9 @@ public class StaffServiceImpl implements StaffService {
         List<StaffAllResponse> staffAllResponseList = new ArrayList<>();
         staffList.forEach(staff -> {
             StaffAllResponse staffAllResponse = new StaffAllResponse(staff.getId(),
-                    staff.getFirstName() + " " + staff.getLastName(), staff.getDepartment().getId(),
-                    staff.getDepartment().getName());
+                    staff.getFirstName() + " " + staff.getLastName(), 
+                    staff.getDepartment() != null ? staff.getDepartment().getId() : null,
+                    staff.getDepartment() != null ? staff.getDepartment().getName() : null);
             staffAllResponseList.add(staffAllResponse);
         });
         return StandardResponse.success(
@@ -462,12 +467,59 @@ public class StaffServiceImpl implements StaffService {
         List<StaffAllResponse> staffAllResponseList = new ArrayList<>();
         staffList.forEach(staff -> {
             StaffAllResponse staffAllResponse = new StaffAllResponse(staff.getId(),
-                    staff.getFirstName() + " " + staff.getLastName(), staff.getDepartment().getId(),
-                    staff.getDepartment().getName());
+                    staff.getFirstName() + " " + staff.getLastName(), 
+                    staff.getDepartment() != null ? staff.getDepartment().getId() : null,
+                    staff.getDepartment() != null ? staff.getDepartment().getName() : null);
             staffAllResponseList.add(staffAllResponse);
         });
         return StandardResponse.success(
                 staffAllResponseList,
-                "Staff created successfully");
+                "Teachers list fetched successfully");
+    }
+
+    @Override
+    public StandardResponse<?> createUserForStaff(Long staffId) {
+        Staff staff;
+        try {
+            staff = find(staffId);
+        } catch (NotFoundException ex) {
+            return StandardResponse.error(
+                    "Staff not found",
+                    "STAFF_NOT_FOUND",
+                    "id",
+                    "Invalid staff id");
+        }
+
+        UserEntity user = userRepository.findByStaffId(staff.getId());
+        
+        // Use mobile number as password
+        String encodedPassword = encoder.encode(staff.getPhone());
+
+        if (user != null) {
+            // Update existing user's password
+            user.setPassword(encodedPassword);
+            user.setDefaultPasswordGenerated(true);
+            userRepository.save(user);
+            return StandardResponse.success(
+                    null,
+                    "User password updated successfully to mobile number");
+        }
+
+        // Create new user if not exists
+        user = UserEntity.builder()
+                .email(staff.getEmail())
+                .username(staff.getEmail())
+                .password(encodedPassword)
+                .isDefaultPasswordGenerated(true)
+                .isDeleted(false)
+                .isStaff(true)
+                .staff(staff)
+                .build();
+
+        userRepository.save(user);
+
+        return StandardResponse.success(
+                null,
+                "User created successfully for staff using mobile number as password");
     }
 }

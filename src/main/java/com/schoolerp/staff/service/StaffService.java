@@ -46,4 +46,6 @@ public interface StaffService {
 
 
     StandardResponse<?> getAllTeachers();
+
+    StandardResponse<?> createUserForStaff(Long staffId);
 }

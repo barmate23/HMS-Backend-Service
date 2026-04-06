@@ -81,5 +81,9 @@ public class StaffController {
         return service.delete(id);
     }
 
+    @PostMapping("/createUserForStaff/{id}")
+    public StandardResponse<?> createUserForStaff(@PathVariable Long id) {
+        return service.createUserForStaff(id);
+    }
 
 }
