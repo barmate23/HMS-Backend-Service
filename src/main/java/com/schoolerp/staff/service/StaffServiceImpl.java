@@ -147,6 +147,7 @@ public class StaffServiceImpl implements StaffService {
                 .password(encodedPassword)
                 .isDefaultPasswordGenerated(true)
                 .isDeleted(false)
+                .isStaff(true)
                 .staff(staff) // 🔥 Important
                 .build();
 
