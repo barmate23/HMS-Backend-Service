@@ -33,6 +33,9 @@ public class UserEntity {
     private String password;
 
     @Column(nullable = false)
+    private boolean isStaff;
+
+    @Column(nullable = false)
     private boolean isDeleted;
 
     @Column(nullable = false)
