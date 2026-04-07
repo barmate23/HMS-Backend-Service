@@ -498,7 +498,7 @@ public class StaffServiceImpl implements StaffService {
         if (user != null) {
             // Update existing user's password
             user.setPassword(encodedPassword);
-            user.setDefaultPasswordGenerated(true);
+            user.setDefaultPasswordGenerated(false);
             userRepository.save(user);
             return StandardResponse.success(
                     null,
