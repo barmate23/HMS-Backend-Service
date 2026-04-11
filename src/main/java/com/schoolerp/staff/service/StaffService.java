@@ -48,4 +48,8 @@ public interface StaffService {
     StandardResponse<?> getAllTeachers();
 
     StandardResponse<?> createUserForStaff(Long staffId);
+
+    byte[] downloadStaffExcelTemplate();
+
+    StandardResponse<?> uploadStaffExcel(org.springframework.web.multipart.MultipartFile file);
 }

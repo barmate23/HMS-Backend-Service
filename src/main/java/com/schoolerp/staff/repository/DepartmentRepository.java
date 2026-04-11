@@ -12,6 +12,8 @@ public interface DepartmentRepository extends JpaRepository<Department, Long> {
 
     boolean existsByCodeIgnoreCase(String code);
 
+    java.util.Optional<Department> findByNameIgnoreCase(String name);
+
     @Query("""
             SELECT d FROM Department d
             WHERE d.isDelete = false 

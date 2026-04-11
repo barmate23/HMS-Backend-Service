@@ -33,6 +33,7 @@ public class StaffServiceImpl implements StaffService {
     private final DepartmentRepository deptRepo;
     private final DesignationRepository desigRepo;
     private final CodeGenerator codeGen;
+    private final org.springframework.context.ApplicationContext applicationContext;
 
     // -------------------------------------------------------------
     // CREATE
@@ -521,5 +522,113 @@ public class StaffServiceImpl implements StaffService {
         return StandardResponse.success(
                 null,
                 "User created successfully for staff using mobile number as password");
+    }
+
+    @Override
+    public byte[] downloadStaffExcelTemplate() {
+        List<String> departmentNames = deptRepo.findAll().stream()
+                .filter(d -> !d.getIsDelete())
+                .map(Department::getName)
+                .toList();
+
+        List<String> designationNames = desigRepo.findAll().stream()
+                .filter(d -> !d.isDeleted())
+                .map(Designation::getName)
+                .toList();
+
+        return com.schoolerp.staff.util.StaffExcelHelper.generateStaffExcelTemplate(departmentNames, designationNames);
+    }
+
+    @Override
+    public StandardResponse<?> uploadStaffExcel(org.springframework.web.multipart.MultipartFile file) {
+        try {
+            List<StaffExcelDto> dtoList = com.schoolerp.staff.util.StaffExcelHelper.parseExcelFile(file.getInputStream());
+
+            java.util.concurrent.CompletableFuture.runAsync(() -> {
+                StaffService selfProxy = applicationContext.getBean(StaffService.class);
+
+                for (StaffExcelDto dto : dtoList) {
+                    try {
+                        Long deptId = null;
+                        Department deptEntity = null;
+                        if (dto.getDepartmentName() != null && !dto.getDepartmentName().isBlank()) {
+                            String dName = dto.getDepartmentName().trim();
+                            java.util.Optional<Department> deptOpt = deptRepo.findByNameIgnoreCase(dName);
+                            if (deptOpt.isPresent() && !deptOpt.get().getIsDelete()) {
+                                deptEntity = deptOpt.get();
+                            } else {
+                                String safeCode = dName.replaceAll("\\s+", "").toUpperCase();
+                                safeCode = safeCode.substring(0, Math.min(safeCode.length(), 4)) + (int) (Math.random() * 10000);
+                                Department newDept = Department.builder()
+                                        .name(dName)
+                                        .code(safeCode)
+                                        .isDelete(false)
+                                        .build();
+                                deptEntity = deptRepo.save(newDept);
+                            }
+                            deptId = deptEntity.getId().longValue();
+                        }
+
+                        Long desigId = null;
+                        if (dto.getDesignationName() != null && !dto.getDesignationName().isBlank() && deptEntity != null) {
+                            String dName = dto.getDesignationName().trim();
+                            java.util.Optional<Designation> desigOpt = desigRepo.findByNameIgnoreCaseAndDepartmentId(dName, deptEntity.getId());
+                            if (desigOpt.isPresent() && !desigOpt.get().isDeleted()) {
+                                desigId = desigOpt.get().getId().longValue();
+                            } else {
+                                Designation newDesig = Designation.builder()
+                                        .name(dName)
+                                        .department(deptEntity)
+                                        .isDeleted(false)
+                                        .teaching(false)
+                                        .build();
+                                newDesig = desigRepo.save(newDesig);
+                                desigId = newDesig.getId().longValue();
+                            }
+                        }
+
+                        java.time.LocalDate parsedDob = null;
+                        if (dto.getDob() != null && !dto.getDob().isBlank()) {
+                            try {
+                                parsedDob = java.time.LocalDate.parse(dto.getDob());
+                            } catch (Exception ignored) { }
+                        }
+
+                        StaffStatus parsedStatus = StaffStatus.ACTIVE;
+                        if (dto.getStatus() != null && !dto.getStatus().isBlank()) {
+                            try {
+                                parsedStatus = StaffStatus.valueOf(dto.getStatus().toUpperCase());
+                            } catch (Exception ignored) { }
+                        }
+
+                        StaffCreateRequest request = new StaffCreateRequest(
+                                dto.getFirstName(),
+                                dto.getLastName(),
+                                dto.getEmail(),
+                                dto.getPhone(),
+                                parsedDob,
+                                deptId,
+                                desigId,
+                                dto.getFatherName(),
+                                dto.getLicenseNumber(),
+                                parsedStatus,
+                                dto.getEmail(), // username
+                                null, // staffImage
+                                dto.getBankName(), dto.getAccountHolderName(), dto.getAccountNumber(), dto.getIfscCode(), dto.getBranchName(), dto.getUpiId(), // bank details
+                                dto.getAddressLine1(), dto.getAddressLine2(), dto.getCity(), dto.getState(), dto.getCountry(), dto.getPostalCode(), // address details
+                                null // qualifications
+                        );
+
+                        selfProxy.create(request);
+                    } catch (Exception ex) {
+                        System.err.println("Failed to process staff excel record for email: " + dto.getEmail() + " - " + ex.getMessage());
+                    }
+                }
+            });
+
+            return StandardResponse.success("Staff bulk upload started. Processing in background.");
+        } catch (Exception e) {
+            return StandardResponse.error("Excel processing failed", "EXCEL_ERROR", "file", e.getMessage());
+        }
     }
 }

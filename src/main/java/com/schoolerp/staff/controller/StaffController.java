@@ -86,4 +86,22 @@ public class StaffController {
         return service.createUserForStaff(id);
     }
 
+    // -------------------------------------------------------------
+    // EXCEL UPLOAD/DOWNLOAD
+    // -------------------------------------------------------------
+    @GetMapping("/downloadTemplate")
+    public org.springframework.http.ResponseEntity<byte[]> downloadTemplate() {
+        byte[] excelBytes = service.downloadStaffExcelTemplate();
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        headers.setContentType(org.springframework.http.MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        headers.setContentDispositionFormData("attachment", "staff_upload_template.xlsx");
+        headers.setCacheControl("must-revalidate, post-check=0, pre-check=0");
+        return new org.springframework.http.ResponseEntity<>(excelBytes, headers, org.springframework.http.HttpStatus.OK);
+    }
+
+    @PostMapping(value = "/upload", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public StandardResponse<?> uploadStaff(@RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        return service.uploadStaffExcel(file);
+    }
+
 }
