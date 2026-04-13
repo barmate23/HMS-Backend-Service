@@ -32,6 +32,8 @@ public class UserEntity {
     @Column(nullable = false)
     private String password;
 
+    private String designation;
+
     @Column(nullable = false)
     private boolean isStaff;
 
