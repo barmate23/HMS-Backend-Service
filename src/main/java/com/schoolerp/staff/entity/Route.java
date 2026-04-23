@@ -38,7 +38,7 @@ public class Route {
     @JoinColumn(name = "driver_id")
     private Staff driver;
 
-    private Integer status; // Active / Inactive
+    private String status; // active / inactive
 
     private Boolean isDeleted = false;
 
