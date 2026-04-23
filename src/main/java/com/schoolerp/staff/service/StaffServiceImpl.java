@@ -403,6 +403,7 @@ public class StaffServiceImpl implements StaffService {
         }
         return new StaffResponse(
                 s.getId(),
+                s.getId(),
                 s.getStaffCode(),
                 s.getFirstName(),
                 s.getLastName(),
