@@ -25,7 +25,7 @@ public class Vehicle {
 
     private Integer capacity;
 
-    private Integer status; // Active, Inactive, Maintenance
+    private String status; // Active, Inactive, Maintenance
 
     private String fuelType; // Diesel, Petrol, CNG
 
