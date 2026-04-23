@@ -182,6 +182,7 @@ public class RoleServiceImpl implements RoleService {
         Staff staff = s.getStaff();
         return new StaffResponse(
                 s.getId(),
+                staff.getId(),
                 staff.getStaffCode(),
                 staff.getFirstName(),
                 staff.getLastName(),

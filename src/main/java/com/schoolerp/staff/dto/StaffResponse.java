@@ -6,6 +6,7 @@ import java.time.LocalDate;
 
 public record StaffResponse(
                 Integer id,
+                Integer staffId,
                 String staffCode,
                 String firstName,
                 String lastName,
