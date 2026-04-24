@@ -140,10 +140,10 @@ public class StaffServiceImpl implements StaffService {
 
         // 7️⃣ Create User Account
         // Use mobile number as password if available, otherwise generate password
-        String password = (req.phone() != null && !req.phone().trim().isEmpty()) 
-                ? req.phone() 
+        String password = (req.phone() != null && !req.phone().trim().isEmpty())
+                ? req.phone()
                 : codeGen.generatePassword();
-        
+
         String encodedPassword = encoder.encode(password);
 
         UserEntity user = UserEntity.builder()
@@ -182,10 +182,16 @@ public class StaffServiceImpl implements StaffService {
                 "credentials",
                 vars);
 
-        rest.postForObject(
-                "https://gateway.sarvosmi.io/api/email/send",
-                request,
-                String.class);
+        try {
+            rest.postForObject(
+                    "https://gateway.sarvosmi.io/api/email/send",
+                    request,
+                    String.class
+            );
+        } catch (org.springframework.web.client.RestClientException ex) {
+            // Covers timeouts, connection issues, HTTP errors
+            System.err.println("Email service unavailable, continuing flow...");
+        }
     }
 
     // -------------------------------------------------------------
@@ -243,7 +249,7 @@ public class StaffServiceImpl implements StaffService {
         List<StaffAllResponse> staffAllResponseList = new ArrayList<>();
         staffList.forEach(staff -> {
             StaffAllResponse staffAllResponse = new StaffAllResponse(staff.getId(),
-                    staff.getFirstName() + " " + staff.getLastName(), 
+                    staff.getFirstName() + " " + staff.getLastName(),
                     staff.getDepartment() != null ? staff.getDepartment().getId() : null,
                     staff.getDepartment() != null ? staff.getDepartment().getName() : null);
             staffAllResponseList.add(staffAllResponse);
@@ -470,7 +476,7 @@ public class StaffServiceImpl implements StaffService {
         List<StaffAllResponse> staffAllResponseList = new ArrayList<>();
         staffList.forEach(staff -> {
             StaffAllResponse staffAllResponse = new StaffAllResponse(staff.getId(),
-                    staff.getFirstName() + " " + staff.getLastName(), 
+                    staff.getFirstName() + " " + staff.getLastName(),
                     staff.getDepartment() != null ? staff.getDepartment().getId() : null,
                     staff.getDepartment() != null ? staff.getDepartment().getName() : null);
             staffAllResponseList.add(staffAllResponse);
@@ -494,7 +500,7 @@ public class StaffServiceImpl implements StaffService {
         }
 
         UserEntity user = userRepository.findByStaffId(staff.getId());
-        
+
         // Use mobile number as password
         String encodedPassword = encoder.encode(staff.getPhone());
 
@@ -594,14 +600,16 @@ public class StaffServiceImpl implements StaffService {
                         if (dto.getDob() != null && !dto.getDob().isBlank()) {
                             try {
                                 parsedDob = java.time.LocalDate.parse(dto.getDob());
-                            } catch (Exception ignored) { }
+                            } catch (Exception ignored) {
+                            }
                         }
 
                         StaffStatus parsedStatus = StaffStatus.ACTIVE;
                         if (dto.getStatus() != null && !dto.getStatus().isBlank()) {
                             try {
                                 parsedStatus = StaffStatus.valueOf(dto.getStatus().toUpperCase());
-                            } catch (Exception ignored) { }
+                            } catch (Exception ignored) {
+                            }
                         }
 
                         StaffCreateRequest request = new StaffCreateRequest(
