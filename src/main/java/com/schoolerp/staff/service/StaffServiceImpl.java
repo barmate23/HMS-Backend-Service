@@ -183,7 +183,7 @@ public class StaffServiceImpl implements StaffService {
                 vars);
 
         rest.postForObject(
-                "https://emails.helixioninnovations.com/api/email/send",
+                "https://gateway.sarvosmi.io/api/email/send",
                 request,
                 String.class);
     }
