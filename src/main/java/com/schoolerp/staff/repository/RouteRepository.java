@@ -11,5 +11,5 @@ import java.util.List;
 public interface RouteRepository extends JpaRepository<Route, Long> {
 
 
-    Route findByDriverId(Integer id);
+    List<Route> findByDriverId(Integer id);
 }
