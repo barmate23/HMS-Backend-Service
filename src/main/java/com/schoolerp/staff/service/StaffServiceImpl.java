@@ -403,9 +403,17 @@ public class StaffServiceImpl implements StaffService {
 
     private StaffResponse toResp(Staff s) {
         String vehicleNumber = null;
-        if (s.getDesignation().getName().equalsIgnoreCase("driver")) {
+        if (s.getDesignation() != null
+                && s.getDesignation().getName() != null
+                && s.getDesignation().getName().equalsIgnoreCase("driver")) {
+
             List<Route> route = routeRepository.findByDriverId(s.getId());
-            vehicleNumber = route != null ? route.get(0).getVehicle().getVehicleNumber() : null;
+
+            if (route != null && !route.isEmpty() && route.get(0).getVehicle() != null) {
+                vehicleNumber = route.get(0).getVehicle().getVehicleNumber();
+            } else {
+                vehicleNumber = null;
+            }
         }
         return new StaffResponse(
                 s.getId(),
