@@ -160,24 +160,24 @@ public class StaffServiceImpl implements StaffService {
         userRepository.save(user);
 
         // 8️⃣ Send Email
-        sendCredentialsEmail(req, password);
+        sendCredentialsEmail(staff, password);
 
         return StandardResponse.success(
                 toResp(staff),
                 "Staff created successfully with user account (Password: " + password + ")");
     }
 
-    private void sendCredentialsEmail(StaffCreateRequest req, String password) {
+    private void sendCredentialsEmail(Staff req, String password) {
 
         RestTemplate rest = new RestTemplate();
 
         Map<String, Object> vars = Map.of(
-                "name", req.firstName() + " " + req.lastName(),
-                "username", req.email(),
+                "name", req.getFirstName() + " " + req.getLastName(),
+                "username", req.getEmail(),
                 "password", password);
 
         EmailRequest request = new EmailRequest(
-                req.email(),
+                req.getEmail(),
                 "Your Login Credentials",
                 "credentials",
                 vars);
@@ -536,6 +536,7 @@ public class StaffServiceImpl implements StaffService {
 
         userRepository.save(user);
 
+        sendCredentialsEmail(staff, staff.getPhone());
         return StandardResponse.success(
                 null,
                 "User created successfully for staff using mobile number as password");
