@@ -58,14 +58,19 @@ public class RoleServiceImpl implements RoleService {
         List<RoleStaffMapper> roleStaffMapperList = new ArrayList<>();
         if (req.staffIds() != null) {
             for (Integer id : req.staffIds()) {
-                Staff staff = staffRepo.findById(id.longValue()).get();
-                UserEntity userEntity = userRepository.findByStaffId(staff.getId());
+                Staff staff = staffRepo.findById(id.longValue())
+                        .filter(s -> !s.isDeleted())
+                        .orElse(null);
+
                 if (staff != null) {
-                    RoleStaffMapper roleStaffMapper = new RoleStaffMapper();
-                    roleStaffMapper.setRole(r);
-                    roleStaffMapper.setStaff(userEntity);
-                    roleStaffMapper.setDeleted(false);
-                    roleStaffMapperList.add(roleStaffMapper);
+                    UserEntity userEntity = userRepository.findByStaffId(staff.getId());
+                    if (userEntity != null) {
+                        RoleStaffMapper roleStaffMapper = new RoleStaffMapper();
+                        roleStaffMapper.setRole(r);
+                        roleStaffMapper.setStaff(userEntity);
+                        roleStaffMapper.setDeleted(false);
+                        roleStaffMapperList.add(roleStaffMapper);
+                    }
                 }
             }
         }
@@ -97,12 +102,32 @@ public class RoleServiceImpl implements RoleService {
     }
 
     public StandardResponse get(Long id) {
-        Role r = find(id);
+        Role r;
+        try {
+            r = find(id);
+        } catch (NotFoundException ex) {
+            return StandardResponse.error(
+                    "Role not found",
+                    "ROLE_NOT_FOUND",
+                    "id",
+                    "The provided roleId does not exist"
+            );
+        }
         return StandardResponse.success(toResp(r), "Role details fetched");
     }
 
     public StandardResponse update(Long id, RoleUpdateRequest req) {
-        Role role = find(id);
+        Role role;
+        try {
+            role = find(id);
+        } catch (NotFoundException ex) {
+            return StandardResponse.error(
+                    "Role not found",
+                    "ROLE_NOT_FOUND",
+                    "id",
+                    "The provided roleId does not exist"
+            );
+        }
 
         if (!role.getName().equalsIgnoreCase(req.name()) &&
                 repo.existsByNameIgnoreCase(req.name())) {
@@ -126,10 +151,12 @@ public class RoleServiceImpl implements RoleService {
         roleStaffMapperRepository.deleteAll(roleStaffMapperList);
         if (req.staffIds() != null) {
             for (Integer staffId : req.staffIds()) {
-                Staff staff = staffRepo.findById(staffId.longValue()).get();
-                UserEntity userEntity = userRepository.findByStaffId(staff.getId());
+                Staff staff = staffRepo.findById(staffId.longValue())
+                        .filter(s -> !s.isDeleted())
+                        .orElse(null);
+                UserEntity userEntity = staff != null ? userRepository.findByStaffId(staff.getId()) : null;
 
-                if (staff != null) {
+                if (staff != null && userEntity != null) {
                     RoleStaffMapper roleStaffMapper = new RoleStaffMapper();
                     roleStaffMapper.setRole(role);
                     roleStaffMapper.setStaff(userEntity);
@@ -144,7 +171,17 @@ public class RoleServiceImpl implements RoleService {
     }
 
     public StandardResponse<Void> delete(Long id) {
-        Role r = find(id);
+        Role r;
+        try {
+            r = find(id);
+        } catch (NotFoundException ex) {
+            return StandardResponse.error(
+                    "Role not found",
+                    "ROLE_NOT_FOUND",
+                    "id",
+                    "The provided roleId does not exist"
+            );
+        }
         r.setDeleted(true);
         repo.save(r);
 
@@ -154,7 +191,7 @@ public class RoleServiceImpl implements RoleService {
     private Role find(Long id) {
         return repo.findById(id)
                 .filter(x -> !x.isDeleted())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Role not found"));
+                .orElseThrow(() -> new NotFoundException("Role not found"));
     }
 
     private RoleResponse toResp(Role r) {

@@ -60,8 +60,18 @@ public class PermissionServiceImpl implements PermissionService{
      */
     public StandardResponse<Void> saveAll(Long roleId, List<PermissionRequest> list) {
 
-        Role role = roleRepository.findById(roleId)
-                .orElseThrow(() -> new NotFoundException("Role not found"));
+        Role role;
+        try {
+            role = roleRepository.findById(roleId)
+                    .orElseThrow(() -> new NotFoundException("Role not found"));
+        } catch (NotFoundException ex) {
+            return StandardResponse.error(
+                    "Role not found",
+                    "ROLE_NOT_FOUND",
+                    "roleId",
+                    "The provided roleId does not exist"
+            );
+        }
 
         // Delete previous permissions
         List<Permission> permissionList = permissionRepository.findByRoleId(roleId);
@@ -71,8 +81,18 @@ public class PermissionServiceImpl implements PermissionService{
 
         }
         for (PermissionRequest req : list) {
-            SubModule subModule = subModuleRepo.findById(req.subModuleId())
-                    .orElseThrow(() -> new NotFoundException("Submodule not found"));
+            SubModule subModule;
+            try {
+                subModule = subModuleRepo.findById(req.subModuleId())
+                        .orElseThrow(() -> new NotFoundException("Submodule not found"));
+            } catch (NotFoundException ex) {
+                return StandardResponse.error(
+                        "Submodule not found",
+                        "SUBMODULE_NOT_FOUND",
+                        "subModuleId",
+                        "The provided subModuleId does not exist: " + req.subModuleId()
+                );
+            }
             Permission p = permissionMap.get(subModule.getId());
             if (p == null) {
                 p = Permission.builder()
@@ -138,6 +158,16 @@ public class PermissionServiceImpl implements PermissionService{
         String loggedInUser = UserContext.getUser();
         System.out.println("User = " + loggedInUser);
         RoleStaffMapper roleStaffMapper = roleStaffMapperRepository.findByIsDeletedAndStaffEmail(false, loggedInUser);
+
+        if (roleStaffMapper == null) {
+            return StandardResponse.error(
+                    "User permissions not found",
+                    "USER_PERMISSIONS_NOT_FOUND",
+                    "email",
+                    "No role/staff mapping found for user: " + loggedInUser
+            );
+        }
+
         List<UserPermissionResponse> permissionResponseList = new ArrayList<>();
 
        String designation = roleStaffMapper.getStaff().getStaff() != null ? roleStaffMapper.getStaff().getStaff().getDesignation().getName() : "System Administrator";

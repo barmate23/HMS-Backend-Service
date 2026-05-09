@@ -56,6 +56,7 @@ public record StaffUpdateRequest(
 
                 String postalCode,
 
+                Integer roleId,
                 /* ===== QUALIFICATIONS ===== */
 
                 List<QualificationRequest> qualifications) {

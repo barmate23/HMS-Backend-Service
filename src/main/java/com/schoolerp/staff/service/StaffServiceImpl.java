@@ -32,6 +32,8 @@ public class StaffServiceImpl implements StaffService {
     private final PasswordEncoder encoder;
     private final DepartmentRepository deptRepo;
     private final DesignationRepository desigRepo;
+    private final RoleRepository roleRepo;
+    private final RoleStaffMapperRepository roleStaffMapperRepo;
     private final CodeGenerator codeGen;
     private final org.springframework.context.ApplicationContext applicationContext;
 
@@ -79,6 +81,22 @@ public class StaffServiceImpl implements StaffService {
                         "DESIGNATION_NOT_FOUND",
                         "designationId",
                         "Invalid designation selected");
+            }
+        }
+
+        // 3.1 Validate Role
+        Role role = null;
+        if (req.roleId() != null) {
+            role = roleRepo.findById(req.roleId())
+                    .filter(r -> !r.isDeleted())
+                    .orElse(null);
+
+            if (role == null) {
+                return StandardResponse.error(
+                        "Role not found",
+                        "ROLE_NOT_FOUND",
+                        "roleId",
+                        "Invalid role selected");
             }
         }
 
@@ -149,7 +167,7 @@ public class StaffServiceImpl implements StaffService {
         UserEntity user = UserEntity.builder()
                 .email(req.email())
                 .username(req.email())
-                .designation(desig.getName())
+                .designation(desig != null ? desig.getName() : null)
                 .password(encodedPassword)
                 .isDefaultPasswordGenerated(true)
                 .isDeleted(false)
@@ -158,6 +176,16 @@ public class StaffServiceImpl implements StaffService {
                 .build();
 
         userRepository.save(user);
+
+        // 7.1 Assign Role to User
+        if (role != null) {
+            RoleStaffMapper mapper = RoleStaffMapper.builder()
+                    .role(role)
+                    .staff(user)
+                    .isDeleted(false)
+                    .build();
+            roleStaffMapperRepo.save(mapper);
+        }
 
         // 8️⃣ Send Email
         sendCredentialsEmail(staff, password);
@@ -276,14 +304,14 @@ public class StaffServiceImpl implements StaffService {
         }
 
         // Email validation
-        if (!existing.getEmail().equalsIgnoreCase(req.email()) &&
-                userRepository.existsByEmailIgnoreCase(req.email())) {
-
-            return StandardResponse.error(
-                    "Email already exists",
-                    "DUPLICATE_EMAIL",
-                    "email",
-                    "Another staff already uses this email");
+        if (!existing.getEmail().equalsIgnoreCase(req.email())) {
+            if (staffRepository.existsByEmailIgnoreCaseAndIsDeletedFalse(req.email())) {
+                return StandardResponse.error(
+                        "Email already exists",
+                        "DUPLICATE_EMAIL",
+                        "email",
+                        "Another staff already uses this email");
+            }
         }
 
         // Validate Department
@@ -318,6 +346,22 @@ public class StaffServiceImpl implements StaffService {
             }
         }
 
+        // Validate Role
+        Role role = null;
+        if (req.roleId() != null) {
+            role = roleRepo.findById(req.roleId())
+                    .filter(r -> !r.isDeleted())
+                    .orElse(null);
+
+            if (role == null) {
+                return StandardResponse.error(
+                        "Role not found",
+                        "ROLE_NOT_FOUND",
+                        "roleId",
+                        "Invalid role selected");
+            }
+        }
+
         existing.setFirstName(req.firstName());
         existing.setLastName(req.lastName());
         existing.setEmail(req.email());
@@ -347,6 +391,33 @@ public class StaffServiceImpl implements StaffService {
         existing.setPostalCode(req.postalCode());
 
         staffRepository.save(existing);
+
+        UserEntity user = userRepository.findByStaffId(existing.getId());
+        if (user != null) {
+            user.setEmail(existing.getEmail());
+            userRepository.save(user);
+        }
+
+        // Update Role
+        if (req.roleId() != null && user != null) {
+            Role roleToAssign = roleRepo.findById(req.roleId())
+                    .filter(r -> !r.isDeleted())
+                    .orElse(null);
+
+            if (roleToAssign != null) {
+                RoleStaffMapper mapper = roleStaffMapperRepo.findByIsDeletedAndStaffId(false, user.getId());
+                if (mapper != null) {
+                    mapper.setRole(roleToAssign);
+                } else {
+                    mapper = RoleStaffMapper.builder()
+                            .role(roleToAssign)
+                            .staff(user)
+                            .isDeleted(false)
+                            .build();
+                }
+                roleStaffMapperRepo.save(mapper);
+            }
+        }
 
         // Update Qualifications (Delete old, Save new)
         List<StaffQualification> existingQuals = qualificationRepository.findByStaff(existing);
@@ -509,8 +580,12 @@ public class StaffServiceImpl implements StaffService {
 
         UserEntity user = userRepository.findByStaffId(staff.getId());
 
-        // Use mobile number as password
-        String encodedPassword = encoder.encode(staff.getPhone());
+        // Use mobile number as password if available, else generate
+        String rawPassword = (staff.getPhone() != null && !staff.getPhone().trim().isEmpty())
+                ? staff.getPhone()
+                : codeGen.generatePassword();
+
+        String encodedPassword = encoder.encode(rawPassword);
 
         if (user != null) {
             // Update existing user's password
@@ -519,7 +594,7 @@ public class StaffServiceImpl implements StaffService {
             userRepository.save(user);
             return StandardResponse.success(
                     null,
-                    "User password updated successfully to mobile number");
+                    "User password updated successfully (Password: " + rawPassword + ")");
         }
 
         // Create new user if not exists
@@ -527,7 +602,7 @@ public class StaffServiceImpl implements StaffService {
                 .email(staff.getEmail())
                 .username(staff.getEmail())
                 .password(encodedPassword)
-                .designation(staff.getDesignation().getName())
+                .designation(staff.getDesignation() != null ? staff.getDesignation().getName() : null)
                 .isDefaultPasswordGenerated(true)
                 .isDeleted(false)
                 .isStaff(true)
@@ -536,10 +611,10 @@ public class StaffServiceImpl implements StaffService {
 
         userRepository.save(user);
 
-        sendCredentialsEmail(staff, staff.getPhone());
+        sendCredentialsEmail(staff, rawPassword);
         return StandardResponse.success(
                 null,
-                "User created successfully for staff using mobile number as password");
+                "User created successfully for staff (Password: " + rawPassword + ")");
     }
 
     @Override

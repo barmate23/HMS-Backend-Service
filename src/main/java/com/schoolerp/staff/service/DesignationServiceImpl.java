@@ -91,7 +91,17 @@ public class DesignationServiceImpl implements DesignationService{
     // GET BY ID
     // -------------------------------------------------------------
     public StandardResponse<DesignationResponse> get(Long id) {
-        Designation d = find(id);
+        Designation d;
+        try {
+            d = find(id);
+        } catch (NotFoundException ex) {
+            return StandardResponse.error(
+                    "Designation not found",
+                    "DESIGNATION_NOT_FOUND",
+                    "id",
+                    "Invalid designation id"
+            );
+        }
         return StandardResponse.success(
                 toResp(d),
                 "Designation fetched successfully"
@@ -103,7 +113,17 @@ public class DesignationServiceImpl implements DesignationService{
     // -------------------------------------------------------------
     public StandardResponse update(Long id, DesignationUpdateRequest req) {
 
-        Designation existing = find(id);
+        Designation existing;
+        try {
+            existing = find(id);
+        } catch (NotFoundException ex) {
+            return StandardResponse.error(
+                    "Designation not found",
+                    "DESIGNATION_NOT_FOUND",
+                    "id",
+                    "Invalid designation id"
+            );
+        }
 
         Department department = departmentRepository.findById(req.departmentId())
                 .filter(x -> !x.getIsDelete())
@@ -135,7 +155,17 @@ public class DesignationServiceImpl implements DesignationService{
     // DELETE (Soft Delete)
     // -------------------------------------------------------------
     public StandardResponse<Void> delete(Long id) {
-        Designation d = find(id);
+        Designation d;
+        try {
+            d = find(id);
+        } catch (NotFoundException ex) {
+            return StandardResponse.error(
+                    "Designation not found",
+                    "DESIGNATION_NOT_FOUND",
+                    "id",
+                    "Invalid designation id"
+            );
+        }
         d.setDeleted(true);
         repository.save(d);
 

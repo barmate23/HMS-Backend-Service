@@ -8,61 +8,62 @@ import java.util.List;
 
 public record StaffCreateRequest(
 
-                /* ===== BASIC DETAILS ===== */
-                @NotBlank(message = "First name is required") String firstName,
+        /* ===== BASIC DETAILS ===== */
+        @NotBlank(message = "First name is required") String firstName,
 
-                @NotBlank(message = "Last name is required") String lastName,
+        @NotBlank(message = "Last name is required") String lastName,
 
-                @Email(message = "Invalid email format") @NotBlank(message = "Email is required") String email,
+        @Email(message = "Invalid email format") @NotBlank(message = "Email is required") String email,
 
-                String phone,
+        String phone,
 
-                LocalDate dob,
+        LocalDate dob,
 
-                Long departmentId,
+        Long departmentId,
 
-                Long designationId,
+        Long designationId,
 
-                String fatherName,
-                String licenseNumber,
+        String fatherName,
+        String licenseNumber,
 
-                StaffStatus status,
+        StaffStatus status,
 
-                String username,
+        String username,
 
-                byte[] staffImage,
+        byte[] staffImage,
 
-                /* ===== BANK DETAILS ===== */
+        /* ===== BANK DETAILS ===== */
 
-                String bankName,
+        String bankName,
 
-                String accountHolderName,
+        String accountHolderName,
 
-                String accountNumber,
+        String accountNumber,
 
-                String ifscCode,
+        String ifscCode,
 
-                String branchName,
+        String branchName,
 
-                String upiId,
+        String upiId,
 
-                /* ===== ADDRESS DETAILS ===== */
+        /* ===== ADDRESS DETAILS ===== */
 
-                String addressLine1,
+        String addressLine1,
 
-                String addressLine2,
+        String addressLine2,
 
-                String city,
+        String city,
 
-                String state,
+        String state,
 
-                String country,
+        String country,
 
-                String postalCode,
+        String postalCode,
+        Integer roleId,
 
-                /* ===== QUALIFICATIONS ===== */
+        /* ===== QUALIFICATIONS ===== */
 
-                List<QualificationRequest> qualifications
+        List<QualificationRequest> qualifications
 
 ) {
 }

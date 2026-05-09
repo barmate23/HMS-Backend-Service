@@ -100,7 +100,18 @@ public class DepartmentServiceImpl implements DepartmentService{
     // GET BY ID
     // -------------------------------------------------------------
     public StandardResponse<DepartmentResponse> get(Long id) {
-        Department d = find(id);
+        Department d;
+        try {
+            d = find(id);
+        } catch (NotFoundException ex) {
+            return StandardResponse.error(
+                    "Department not found",
+                    "DEPARTMENT_NOT_FOUND",
+                    "id",
+                    "Invalid department id"
+            );
+        }
+
         return StandardResponse.success(
                 toResp(d),
                 "Department fetched successfully"
@@ -112,7 +123,17 @@ public class DepartmentServiceImpl implements DepartmentService{
     // -------------------------------------------------------------
     public StandardResponse update(Long id, DepartmentUpdateRequest req) {
 
-        Department d = find(id);
+        Department d;
+        try {
+            d = find(id);
+        } catch (NotFoundException ex) {
+            return StandardResponse.error(
+                    "Department not found",
+                    "DEPARTMENT_NOT_FOUND",
+                    "id",
+                    "Invalid department id"
+            );
+        }
 
         if (!d.getName().equalsIgnoreCase(req.name()) &&
                 repository.existsByNameIgnoreCase(req.name())) {
@@ -153,7 +174,18 @@ public class DepartmentServiceImpl implements DepartmentService{
     // DELETE (Soft Delete)
     // -------------------------------------------------------------
     public StandardResponse<Void> delete(Long id) {
-        Department d = find(id);
+        Department d;
+        try {
+            d = find(id);
+        } catch (NotFoundException ex) {
+            return StandardResponse.error(
+                    "Department not found",
+                    "DEPARTMENT_NOT_FOUND",
+                    "id",
+                    "Invalid department id"
+            );
+        }
+
         d.setIsDelete(true);
         repository.save(d);
 

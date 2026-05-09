@@ -31,4 +31,6 @@ public interface StaffRepository extends JpaRepository<Staff, Long> {
  List<Staff> findByIsDeletedAndDesignationNameAndStatus(boolean b, String teacher, StaffStatus active);
 
     boolean existsByStaffCode(String code);
+
+    boolean existsByEmailIgnoreCaseAndIsDeletedFalse(String email);
 }
