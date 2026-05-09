@@ -99,7 +99,7 @@ public class DepartmentServiceImpl implements DepartmentService{
     // -------------------------------------------------------------
     // GET BY ID
     // -------------------------------------------------------------
-    public StandardResponse<DepartmentResponse> get(Long id) {
+    public StandardResponse get(Long id) {
         Department d;
         try {
             d = find(id);

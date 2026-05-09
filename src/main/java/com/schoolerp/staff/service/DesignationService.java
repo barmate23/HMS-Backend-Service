@@ -34,7 +34,7 @@ public interface DesignationService {
     // -------------------------------------------------------------
     // GET BY ID
     // -------------------------------------------------------------
-    public StandardResponse<DesignationResponse> get(Long id);
+    public StandardResponse get(Long id);
 
     // -------------------------------------------------------------
     // UPDATE

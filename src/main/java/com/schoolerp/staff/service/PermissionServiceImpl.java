@@ -154,7 +154,7 @@ public class PermissionServiceImpl implements PermissionService{
         );
     }
 
-    public StandardResponse<List<UserPermissionResponse>> getUserPermission() {
+    public StandardResponse getUserPermission() {
         String loggedInUser = UserContext.getUser();
         System.out.println("User = " + loggedInUser);
         RoleStaffMapper roleStaffMapper = roleStaffMapperRepository.findByIsDeletedAndStaffEmail(false, loggedInUser);

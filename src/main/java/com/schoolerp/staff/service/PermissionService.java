@@ -33,7 +33,7 @@ public interface PermissionService {
      */
     public StandardResponse<List<ModuleWithSubmodulesResponse>> getAllModulesWithSubmodules();
 
-    public StandardResponse<List<UserPermissionResponse>> getUserPermission();
+    public StandardResponse getUserPermission();
 
 
 

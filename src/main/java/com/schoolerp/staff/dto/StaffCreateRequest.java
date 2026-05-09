@@ -59,7 +59,7 @@ public record StaffCreateRequest(
         String country,
 
         String postalCode,
-        Integer roleId,
+        Long roleId,
 
         /* ===== QUALIFICATIONS ===== */
 

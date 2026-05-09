@@ -35,7 +35,7 @@ public interface DepartmentService {
     // -------------------------------------------------------------
     // GET BY ID
     // -------------------------------------------------------------
-    public StandardResponse<DepartmentResponse> get(Long id);
+    public StandardResponse get(Long id);
 
     // -------------------------------------------------------------
     // UPDATE

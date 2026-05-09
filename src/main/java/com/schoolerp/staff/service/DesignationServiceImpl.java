@@ -90,7 +90,7 @@ public class DesignationServiceImpl implements DesignationService{
     // -------------------------------------------------------------
     // GET BY ID
     // -------------------------------------------------------------
-    public StandardResponse<DesignationResponse> get(Long id) {
+    public StandardResponse get(Long id) {
         Designation d;
         try {
             d = find(id);

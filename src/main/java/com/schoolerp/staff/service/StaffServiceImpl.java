@@ -711,6 +711,7 @@ public class StaffServiceImpl implements StaffService {
                                 null, // staffImage
                                 dto.getBankName(), dto.getAccountHolderName(), dto.getAccountNumber(), dto.getIfscCode(), dto.getBranchName(), dto.getUpiId(), // bank details
                                 dto.getAddressLine1(), dto.getAddressLine2(), dto.getCity(), dto.getState(), dto.getCountry(), dto.getPostalCode(), // address details
+                                null, // roleId
                                 null // qualifications
                         );
 
