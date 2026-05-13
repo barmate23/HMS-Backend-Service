@@ -23,10 +23,10 @@ public class UserEntity {
     @JoinColumn(name = "staff_id")
     private Staff staff;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private String email;
 
-    @Column(unique = true, nullable = false)
+    @Column( nullable = false)
     private String username;
 
     @Column(nullable = false)
