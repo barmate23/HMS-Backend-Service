@@ -13,7 +13,7 @@ import java.util.List;
 
 public interface UserRepository extends JpaRepository<UserEntity, Long> {
 
-    boolean existsByEmailIgnoreCase(String email);
+    boolean existsByEmailIgnoreCaseAndIsDeletedFalse(String email);
 
     UserEntity findByStaffId(Integer id);
 }

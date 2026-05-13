@@ -44,7 +44,7 @@ public class StaffServiceImpl implements StaffService {
     public StandardResponse create(StaffCreateRequest req) {
 
         // 1️⃣ Validate Email
-        if (userRepository.existsByEmailIgnoreCase(req.email())) {
+        if (userRepository.existsByEmailIgnoreCaseAndIsDeletedFalse(req.email())) {
             return StandardResponse.error(
                     "Email already exists",
                     "DUPLICATE_EMAIL",
@@ -459,6 +459,13 @@ public class StaffServiceImpl implements StaffService {
 
         s.setDeleted(true);
         staffRepository.save(s);
+
+        // Soft delete associated user if exists
+        UserEntity user = userRepository.findByStaffId(s.getId().intValue());
+        if (user != null) {
+            user.setDeleted(true);
+            userRepository.save(user);
+        }
 
         return StandardResponse.success("Staff deleted successfully");
     }
