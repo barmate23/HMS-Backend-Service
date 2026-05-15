@@ -52,4 +52,6 @@ public interface StaffService {
     byte[] downloadStaffExcelTemplate();
 
     StandardResponse<?> uploadStaffExcel(org.springframework.web.multipart.MultipartFile file);
+    StandardResponse<?> updateStatus(Long id, StaffStatus status);
+    StandardResponse<?> toggleStatus(Long id);
 }

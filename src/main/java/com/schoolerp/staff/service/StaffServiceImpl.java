@@ -734,4 +734,48 @@ public class StaffServiceImpl implements StaffService {
             return StandardResponse.error("Excel processing failed", "EXCEL_ERROR", "file", e.getMessage());
         }
     }
+
+    @Override
+    public StandardResponse<?> updateStatus(Long id, StaffStatus status) {
+        Staff staff;
+        try {
+            staff = find(id);
+        } catch (NotFoundException ex) {
+            return StandardResponse.error(
+                    "Staff not found",
+                    "STAFF_NOT_FOUND",
+                    "id",
+                    "Invalid staff id");
+        }
+
+        staff.setStatus(status);
+        staffRepository.save(staff);
+
+        return StandardResponse.success(
+                toResp(staff),
+                "Staff status updated successfully to " + status);
+    }
+
+    @Override
+    public StandardResponse<?> toggleStatus(Long id) {
+        Staff staff;
+        try {
+            staff = find(id);
+        } catch (NotFoundException ex) {
+            return StandardResponse.error(
+                    "Staff not found",
+                    "STAFF_NOT_FOUND",
+                    "id",
+                    "Invalid staff id");
+        }
+
+        StaffStatus currentStatus = staff.getStatus();
+        StaffStatus newStatus = (currentStatus == StaffStatus.ACTIVE) ? StaffStatus.INACTIVE : StaffStatus.ACTIVE;
+        staff.setStatus(newStatus);
+        staffRepository.save(staff);
+
+        return StandardResponse.success(
+                toResp(staff),
+                "Staff status toggled to " + newStatus);
+    }
 }

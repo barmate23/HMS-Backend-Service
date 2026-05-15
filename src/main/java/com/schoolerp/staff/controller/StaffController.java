@@ -103,5 +103,14 @@ public class StaffController {
     public StandardResponse<?> uploadStaff(@RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
         return service.uploadStaffExcel(file);
     }
+    @PutMapping("/updateStatus/{id}")
+    public StandardResponse<?> updateStatus(@PathVariable Long id, @RequestParam StaffStatus status) {
+        return service.updateStatus(id, status);
+    }
+
+    @PutMapping("/toggleStatus/{id}")
+    public StandardResponse<?> toggleStatus(@PathVariable Long id) {
+        return service.toggleStatus(id);
+    }
 
 }
