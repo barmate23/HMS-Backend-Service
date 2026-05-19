@@ -3,10 +3,10 @@ server:
 
 spring:
   application:
-    name: staffservice
+    name: frontofficeservice
 
   datasource:
-    url: jdbc:mysql://100.102.119.100:3306/schoolerp?useSSL=false&serverTimezone=UTC
+    url: jdbc:mysql://localhost:3306/hotel?useSSL=false&serverTimezone=UTC
     username: root
     password: root
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -30,10 +30,7 @@ spring:
   config:
     import: "optional:configserver:"
 
-# cloud:
-#   config:
-#     uri: ${CONFIG_SERVER_URI:http://localhost:8888}
-#     fail-fast: false
+
 
 management:
   endpoints:
@@ -53,20 +50,20 @@ logging:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%X{logId:-}] [%X{requestId:-}] [%X{operation:-}] %-5level %logger{36} - %msg%n"
     file: "%d{yyyy-MM-dd HH:mm:ss} [%X{logId:-}] [%X{requestId:-}] [%X{operation:-}] [%thread] %-5level %logger{36} - %msg%n"
   file:
-    name: logs/staf-service.log
+    name: logs/frontoffice-service.log
 
 aws:
   accessKey: AKIAYM45RKJWHBW67LQW
   secretKey: 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
   region: us-east-1
   s3:
-    bucket-name: erp-school-management
+    bucket-name: erp-hotel-management
 
 # Custom application properties
 app:
-  name: Student Management Service
+  name: front Office Service
   version: 1.0.0
-  description: Microservice for managing student data, ID cards, marksheets and documents
+  description: Microservice for managing front office , reservations , check in & out
 
 
 eureka:

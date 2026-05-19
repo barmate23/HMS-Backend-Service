@@ -1,0 +1,79 @@
+package com.hotelerp.frontoffice.controller;
+
+import com.hotelerp.frontoffice.common.StandardResponse;
+import com.hotelerp.frontoffice.constants.ServiceConstants;
+import com.hotelerp.frontoffice.dto.*;
+import com.hotelerp.frontoffice.service.ReservationService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
+
+/**
+ * REST controller for Reservation and Room-availability APIs.
+ *
+ * Base URL: /api/v1/reservations
+ *
+ * POST   /createReservation           – Create reservation + bookings
+ * GET    /getReservationById/{id}     – Get single reservation
+ * GET    /getAllReservations           – List all (optional ?search=)
+ * GET    /getByGuest/{guestId}        – Guest's reservations
+ * PUT    /cancelReservation/{id}      – Cancel reservation + bookings
+ * DELETE /deleteReservation/{id}      – Soft-delete reservation
+ *
+ * Base URL: /api/v1/rooms
+ * GET    /available                   – Available rooms (?hotelId=&checkIn=&checkOut=)
+ */
+@RestController
+@RequiredArgsConstructor
+public class ReservationController {
+
+    private final ReservationService reservationService;
+
+    // ── Reservation Endpoints ──────────────────────────────────────────────
+
+    @PostMapping(ServiceConstants.RESERVATION_BASE_URL + ServiceConstants.CREATE_RESERVATION)
+    public ResponseEntity<StandardResponse<?>> createReservation(
+            @Valid @RequestBody ReservationRequest request) {
+        return ResponseEntity.ok(reservationService.createReservation(request));
+    }
+
+    @GetMapping(ServiceConstants.RESERVATION_BASE_URL + ServiceConstants.GET_RESERVATION_BY_ID)
+    public ResponseEntity<StandardResponse<?>> getReservationById(@PathVariable Long id) {
+        return ResponseEntity.ok(reservationService.getReservationById(id));
+    }
+
+    @GetMapping(ServiceConstants.RESERVATION_BASE_URL + ServiceConstants.GET_ALL_RESERVATIONS)
+    public ResponseEntity<StandardResponse<?>> getAllReservations(
+            @RequestParam(required = false) String search) {
+        return ResponseEntity.ok(reservationService.getAllReservations(search));
+    }
+
+    @GetMapping(ServiceConstants.RESERVATION_BASE_URL + ServiceConstants.GET_RESERVATIONS_BY_GUEST)
+    public ResponseEntity<StandardResponse<?>> getReservationsByGuest(@PathVariable Long guestId) {
+        return ResponseEntity.ok(reservationService.getReservationsByGuest(guestId));
+    }
+
+    @PutMapping(ServiceConstants.RESERVATION_BASE_URL + ServiceConstants.CANCEL_RESERVATION)
+    public ResponseEntity<StandardResponse<?>> cancelReservation(@PathVariable Long id) {
+        return ResponseEntity.ok(reservationService.cancelReservation(id));
+    }
+
+    @DeleteMapping(ServiceConstants.RESERVATION_BASE_URL + ServiceConstants.DELETE_RESERVATION)
+    public ResponseEntity<StandardResponse<?>> deleteReservation(@PathVariable Long id) {
+        return ResponseEntity.ok(reservationService.deleteReservation(id));
+    }
+
+    // ── Room Availability Endpoint ─────────────────────────────────────────
+
+    @GetMapping(ServiceConstants.ROOM_BASE_URL + ServiceConstants.GET_AVAILABLE_ROOMS)
+    public ResponseEntity<StandardResponse<?>> getAvailableRooms(
+            @RequestParam Long hotelId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkIn,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOut) {
+        return ResponseEntity.ok(reservationService.getAvailableRooms(hotelId, checkIn, checkOut));
+    }
+}

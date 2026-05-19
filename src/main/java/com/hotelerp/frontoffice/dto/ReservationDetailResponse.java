@@ -1,0 +1,69 @@
+package com.hotelerp.frontoffice.dto;
+
+import com.hotelerp.frontoffice.entity.Reservation;
+import lombok.*;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.List;
+
+/**
+ * Full detail response returned by GET /getReservationById/{id}.
+ * Contains every field needed to render the detail / edit view.
+ */
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class ReservationDetailResponse {
+
+    private Long id;
+
+    // ── Guest ──────────────────────────────────────────────────────────────
+    private Long    guestId;
+    private String  guestInitials;
+    private String  guestFullName;
+    private String  guestEmail;
+    private String  guestPhone;
+    private Boolean guestIsVip;
+    private String  guestBadge;         // "VIP" | "REPEAT" | "NEW"
+
+    // ── Hotel ──────────────────────────────────────────────────────────────
+    private Long   hotelId;
+    private String hotelName;
+
+    // ── Stay Info ──────────────────────────────────────────────────────────
+    private LocalDate checkInDate;
+    private LocalTime checkInTime;
+    private LocalDate checkOutDate;
+    private LocalTime checkOutTime;
+    private Integer   numberOfNights;
+    private Integer   numberOfAdults;
+    private Integer   numberOfChildren;
+
+    // ── Status & Plan ──────────────────────────────────────────────────────
+    private Reservation.ReservationStatus reservationStatus;
+    private Reservation.RatePlan          ratePlan;
+
+    // ── Rooms & Booking Lines ──────────────────────────────────────────────
+    private Integer              numberOfRooms;
+    private List<BookingResponse> bookings;   // full per-room detail
+
+    // ── Billing ────────────────────────────────────────────────────────────
+    private String     billingName;
+    private String     billingAddress;
+    private BigDecimal totalPrice;      // before discount
+    private BigDecimal totalDiscount;
+    private BigDecimal grandTotal;      // after discount
+    private BigDecimal paidAmount;      // from successful payments
+
+    // ── Notes ─────────────────────────────────────────────────────────────
+    private String specialRequests;
+    private String notes;
+
+    // ── Audit ─────────────────────────────────────────────────────────────
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+}
