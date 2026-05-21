@@ -19,7 +19,7 @@ pipeline {
         stage('Docker Version') {
             steps {
                 sh 'docker --version'
-                sh 'docker-compose --version'
+                sh 'docker compose version'
             }
         }
 
@@ -55,13 +55,13 @@ pipeline {
 
         stage('Build Image') {
             steps {
-                sh "docker-compose -f ${COMPOSE_FILE} build ${TARGET_SERVICE}"
+                sh "docker compose -f ${COMPOSE_FILE} build ${TARGET_SERVICE}"
             }
         }
 
         stage('Start Container') {
             steps {
-                sh "docker-compose -f ${COMPOSE_FILE} up -d ${TARGET_SERVICE}"
+                sh "docker compose -f ${COMPOSE_FILE} up -d ${TARGET_SERVICE}"
             }
         }
 
