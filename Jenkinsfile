@@ -19,7 +19,7 @@ pipeline {
         stage('Docker Version') {
             steps {
                 sh 'docker --version'
-                sh 'docker compose --version'  // ✅ Use with hyphen
+                sh 'docker-compose --version'  // ✅ Use with hyphen
             }
         }
 
