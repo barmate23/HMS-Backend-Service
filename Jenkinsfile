@@ -3,13 +3,13 @@ pipeline {
 
     environment {
         COMPOSE_FILE = "docker-compose.bookingservice.yml"
-        REGISTRY_CONTAINER_NAME = "bookingservice"
         TARGET_SERVICE = "bookingservice"
         TARGET_CONTAINER_NAME = "bookingservice"
         TARGET_IMAGE_NAME = "bookingservice:latest"
     }
 
     stages {
+
         stage('Checkout') {
             steps {
                 checkout scm
@@ -19,32 +19,71 @@ pipeline {
         stage('Docker Version') {
             steps {
                 sh 'docker --version'
-                sh 'docker-compose --version'  // ✅ Use with hyphen
+                sh 'docker-compose --version'
             }
         }
 
-        stage('Check Registry and Run Service') {
+        stage('Stop Existing Container') {
             steps {
                 script {
-                    def isRegistryRunning = sh(
-                        script: "docker ps -q -f name=${REGISTRY_CONTAINER_NAME}",
+
+                    def existingContainer = sh(
+                        script: "docker ps -aq -f name=${TARGET_CONTAINER_NAME}",
                         returnStdout: true
                     ).trim()
 
-                    if (isRegistryRunning) {
-                        echo "${REGISTRY_CONTAINER_NAME} is running. Proceeding to build and start ${TARGET_SERVICE}..."
+                    if (existingContainer) {
 
-                        // Remove existing container
-                        sh "docker rm -f ${TARGET_CONTAINER_NAME} || true"
+                        echo "Existing container found."
 
-                        // Remove existing image
-                        sh "docker rmi -f ${TARGET_IMAGE_NAME} || true"
+                        sh """
+                            docker rm -f ${TARGET_CONTAINER_NAME} || true
+                        """
 
-                        // ✅ Use docker-compose (with hyphen) for build and up
-                        sh "docker-compose -f ${COMPOSE_FILE} build ${TARGET_SERVICE}"
-                        sh "docker-compose -f ${COMPOSE_FILE} up -d ${TARGET_SERVICE}"
                     } else {
-                        error "${REGISTRY_CONTAINER_NAME} is not running. Aborting deployment of ${TARGET_SERVICE}."
+                        echo "No existing container found."
+                    }
+                }
+            }
+        }
+
+        stage('Remove Old Image') {
+            steps {
+                sh "docker rmi -f ${TARGET_IMAGE_NAME} || true"
+            }
+        }
+
+        stage('Build Image') {
+            steps {
+                sh "docker-compose -f ${COMPOSE_FILE} build ${TARGET_SERVICE}"
+            }
+        }
+
+        stage('Start Container') {
+            steps {
+                sh "docker-compose -f ${COMPOSE_FILE} up -d ${TARGET_SERVICE}"
+            }
+        }
+
+        stage('Health Check') {
+            steps {
+                script {
+
+                    sleep(time: 20, unit: 'SECONDS')
+
+                    def healthStatus = sh(
+                        script: "docker ps -q -f name=${TARGET_CONTAINER_NAME}",
+                        returnStatus: true
+                    )
+
+                    if (healthStatus != 0) {
+
+                        sh "docker logs ${TARGET_CONTAINER_NAME} || true"
+
+                        error("Container failed to start.")
+
+                    } else {
+                        echo "✅ ${TARGET_CONTAINER_NAME} deployed successfully."
                     }
                 }
             }
@@ -54,6 +93,14 @@ pipeline {
     post {
         always {
             echo '✅ Pipeline execution completed.'
+        }
+
+        failure {
+            echo '❌ Deployment failed.'
+        }
+
+        success {
+            echo '🚀 Deployment successful.'
         }
     }
 }
