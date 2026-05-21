@@ -30,4 +30,5 @@ public class ServiceConstants {
 
     // Legacy alias kept so existing GuestController compile unchanged
     public static final String BASE_URL = GUEST_BASE_URL;
+    public static final String GET_ROOM_AUDITS = "/getRooAudit";
 }

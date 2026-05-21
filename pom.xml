@@ -9,9 +9,9 @@
         <relativePath/>
     </parent>
     <groupId>com.schoolerp</groupId>
-    <artifactId>staff-service</artifactId>
+    <artifactId>frontoffice-service</artifactId>
     <version>1.0.0</version>
-    <name>staff-service</name>
+    <name>frontoffice-service</name>
     <description>staff Management Microservice for School ERP System</description>
     <properties>
         <java.version>17</java.version>

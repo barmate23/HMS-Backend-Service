@@ -12,16 +12,13 @@ import java.util.List;
 @Repository
 public interface RoomRepository extends JpaRepository<Room, Long> {
 
-    List<Room> findByHotel_IdAndIsActiveTrue(Long hotelId);
-
-    List<Room> findByHotel_IdAndRoomType_IdAndIsActiveTrue(Long hotelId, Long roomTypeId);
 
     /**
      * Fetch all rooms for a hotel that have NO active (non-cancelled) booking
      * overlapping the requested date range — i.e., truly available rooms.
      */
     @Query("SELECT r FROM Room r " +
-           "WHERE r.hotel.id = :hotelId " +
+           "WHERE r.floor.id = :floorId " +
            "AND r.isActive = true " +
            "AND r.status = com.hotelerp.frontoffice.entity.Room.RoomStatus.VACANT " +
            "AND r.id NOT IN (" +
@@ -32,7 +29,7 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
            "  AND b.checkOutDate > :checkIn" +
            ")")
     List<Room> findAvailableRooms(
-            @Param("hotelId")  Long hotelId,
+            @Param("floorId")  Long floorId,
             @Param("checkIn")  LocalDate checkIn,
             @Param("checkOut") LocalDate checkOut);
 }

@@ -330,15 +330,15 @@ public class ReservationServiceImpl implements ReservationService {
 
     @Override
     @Transactional(readOnly = true)
-    public StandardResponse<?> getAvailableRooms(Long hotelId, LocalDate checkIn, LocalDate checkOut) {
-        log.info("Fetching available rooms hotelId={}, {} to {}", hotelId, checkIn, checkOut);
+    public StandardResponse<?> getAvailableRooms(Long floorId, LocalDate checkIn, LocalDate checkOut) {
+        log.info("Fetching available rooms hotelId={}, {} to {}", floorId, checkIn, checkOut);
         try {
             if (checkOut == null || checkIn == null || !checkOut.isAfter(checkIn)) {
                 return StandardResponse.error("Valid check-in and check-out dates are required",
                         "INVALID_DATES", "checkIn/checkOut", null);
             }
 
-            List<Room> rooms = roomRepository.findAvailableRooms(hotelId, checkIn, checkOut);
+            List<Room> rooms = roomRepository.findAvailableRooms(floorId, checkIn, checkOut);
             List<RoomResponse> responses = rooms.stream()
                     .map(this::mapRoomToResponse)
                     .collect(Collectors.toList());

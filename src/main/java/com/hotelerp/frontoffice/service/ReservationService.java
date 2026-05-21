@@ -28,7 +28,7 @@ public interface ReservationService {
     StandardResponse<?> deleteReservation(Long id);
 
     /** Return available rooms for a hotel on the given date range */
-    StandardResponse<?> getAvailableRooms(Long hotelId, LocalDate checkIn, LocalDate checkOut);
+    StandardResponse<?> getAvailableRooms(Long floorId, LocalDate checkIn, LocalDate checkOut);
 
     /** 1> Get arrivals or departures list (with stats) based on checkout flag */
     StandardResponse<?> getArrivals(LocalDate date, String search, boolean checkout);

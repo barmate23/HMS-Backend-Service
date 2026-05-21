@@ -71,9 +71,9 @@ public class ReservationController {
 
     @GetMapping(ServiceConstants.ROOM_BASE_URL + ServiceConstants.GET_AVAILABLE_ROOMS)
     public ResponseEntity<StandardResponse<?>> getAvailableRooms(
-            @RequestParam Long hotelId,
+            @RequestParam Long floorId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkIn,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOut) {
-        return ResponseEntity.ok(reservationService.getAvailableRooms(hotelId, checkIn, checkOut));
+        return ResponseEntity.ok(reservationService.getAvailableRooms(floorId, checkIn, checkOut));
     }
 }
