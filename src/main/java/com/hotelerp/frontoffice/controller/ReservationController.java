@@ -3,6 +3,7 @@ package com.hotelerp.frontoffice.controller;
 import com.hotelerp.frontoffice.common.StandardResponse;
 import com.hotelerp.frontoffice.constants.ServiceConstants;
 import com.hotelerp.frontoffice.dto.*;
+import com.hotelerp.frontoffice.entity.Reservation;
 import com.hotelerp.frontoffice.service.ReservationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
