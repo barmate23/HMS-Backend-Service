@@ -1,14 +1,14 @@
 server:
-  port: 8089
+  port: 9001
 
 spring:
   application:
-    name: frontofficeservice
+    name: bookingservice
 
   datasource:
-    url: jdbc:mysql://localhost:3306/hotel?useSSL=false&serverTimezone=UTC
-    username: root
-    password: root
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://erp-mysql:3306/hms?useSSL=false&serverTimezone=UTC}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:root}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
@@ -17,7 +17,6 @@ spring:
     show-sql: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MySQL8Dialect
         format_sql: true
     defer-datasource-initialization: true
 
@@ -30,13 +29,12 @@ spring:
   config:
     import: "optional:configserver:"
 
-
-
 management:
   endpoints:
     web:
       exposure:
         include: health,info,metrics
+
   endpoint:
     health:
       show-details: when-authorized
@@ -46,35 +44,19 @@ logging:
     com.schoolerp.student: INFO
     org.springframework.web: DEBUG
     org.hibernate.SQL: DEBUG
+
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%X{logId:-}] [%X{requestId:-}] [%X{operation:-}] %-5level %logger{36} - %msg%n"
-    file: "%d{yyyy-MM-dd HH:mm:ss} [%X{logId:-}] [%X{requestId:-}] [%X{operation:-}] [%thread] %-5level %logger{36} - %msg%n"
+
   file:
     name: logs/frontoffice-service.log
-
-aws:
-  accessKey: AKIAYM45RKJWHBW67LQW
-  secretKey: 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
-  region: us-east-1
-  s3:
-    bucket-name: erp-hotel-management
-
-# Custom application properties
-app:
-  name: front Office Service
-  version: 1.0.0
-  description: Microservice for managing front office , reservations , check in & out
-
 
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka/   # Eureka server URL
-    register-with-eureka: false
-    fetch-registry: false
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://adminserviceregistry:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+
   instance:
     prefer-ip-address: true
-
-
-
-
