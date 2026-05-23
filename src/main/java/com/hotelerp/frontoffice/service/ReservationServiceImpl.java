@@ -9,6 +9,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import jakarta.persistence.criteria.Predicate;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -225,19 +231,54 @@ public class ReservationServiceImpl implements ReservationService {
 
     @Override
     @Transactional(readOnly = true)
-    public StandardResponse<?> getAllReservations(String search) {
-        log.info("Fetching all reservations, search={}", search);
+    public StandardResponse<?> getAllReservations(String searchText, Reservation.ReservationStatus status, 
+                                                   LocalDate fromDate, LocalDate toDate, int page, int size) {
+        log.info("Fetching all reservations, search={}, status={}, from={}, to={}, page={}, size={}", 
+                searchText, status, fromDate, toDate, page, size);
         try {
-            List<Reservation> list = (search != null && !search.isBlank())
-                    ? reservationRepository.searchReservations(search.trim())
-                    : reservationRepository.findByIsDeletedFalse();
+            Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+            
+            Specification<Reservation> spec = (root, query, cb) -> {
+                List<Predicate> predicates = new ArrayList<>();
+                
+                // Always check isDeleted
+                predicates.add(cb.equal(root.get("isDeleted"), false));
+                
+                // Status filter
+                if (status != null) {
+                    predicates.add(cb.equal(root.get("reservationStatus"), status));
+                }
+                
+                // Date range filter (checking check-in date)
+                if (fromDate != null) {
+                    predicates.add(cb.greaterThanOrEqualTo(root.get("checkInDate"), fromDate));
+                }
+                if (toDate != null) {
+                    predicates.add(cb.lessThanOrEqualTo(root.get("checkInDate"), toDate));
+                }
+                
+                // Search filter (guest name or email)
+                if (searchText != null && !searchText.trim().isEmpty()) {
+                    String pattern = "%" + searchText.trim().toLowerCase() + "%";
+                    Predicate guestFirstName = cb.like(cb.lower(root.get("guest").get("firstName")), pattern);
+                    Predicate guestLastName = cb.like(cb.lower(root.get("guest").get("lastName")), pattern);
+                    Predicate guestEmail = cb.like(cb.lower(root.get("guest").get("email")), pattern);
+                    predicates.add(cb.or(guestFirstName, guestLastName, guestEmail));
+                }
+                
+                return cb.and(predicates.toArray(new Predicate[0]));
+            };
 
-            List<ReservationResponse> responses = list.stream()
+            Page<Reservation> reservationPage = reservationRepository.findAll(spec, pageable);
+
+            List<ReservationResponse> responses = reservationPage.getContent().stream()
                     .map(this::mapToResponse)
                     .collect(Collectors.toList());
 
             StandardResponse.ResponseMetadata meta = StandardResponse.ResponseMetadata.builder()
-                    .totalRecords((long) responses.size())
+                    .totalRecords(reservationPage.getTotalElements())
+                    .currentPage(page)
+                    .pageSize(size)
                     .operation("GET_ALL_RESERVATIONS")
                     .build();
 
@@ -499,27 +540,6 @@ public class ReservationServiceImpl implements ReservationService {
                 .build();
     }
 
-    private RoomResponse mapRoomToResponse(Room room) {
-        return RoomResponse.builder()
-                .id(room.getId())
-                .roomNumber(room.getRoomNumber())
-                .floor(room.getFloor().getFloorNumber())
-                .roomTypeId(room.getRoomType() != null ? room.getRoomType().getId() : null)
-                .roomTypeName(room.getRoomType() != null ? room.getRoomType().getName() : null)
-                .basePricePerNight(room.getRoomType() != null ? room.getRoomType().getBasePricePerNight() : null)
-                .maxOccupancy(room.getMaxOccupancy())
-                .status(room.getStatus())
-                .isActive(room.getIsActive())
-                .build();
-    }
-
-    // ── Inline Guest Builder ───────────────────────────────────────────────
-
-    /**
-     * Constructs a new {@link Guest} entity from the inline guest details
-     * provided inside a {@link ReservationRequest}.
-     * Used only by the "Create Guest" flow of createReservation.
-     */
     private Guest buildInlineGuest(GuestRequest gd) {
         LocalDateTime now = LocalDateTime.now();
         return Guest.builder()
@@ -550,63 +570,97 @@ public class ReservationServiceImpl implements ReservationService {
                 .build();
     }
 
+    private RoomResponse mapRoomToResponse(Room room) {
+        return RoomResponse.builder()
+                .id(room.getId())
+                .roomNumber(room.getRoomNumber())
+                .floor(room.getFloor().getFloorNumber())
+                .roomTypeId(room.getRoomType() != null ? room.getRoomType().getId() : null)
+                .roomTypeName(room.getRoomType() != null ? room.getRoomType().getName() : null)
+                .basePricePerNight(room.getRoomType() != null ? room.getRoomType().getBasePricePerNight() : null)
+                .maxOccupancy(room.getMaxOccupancy())
+                .status(room.getStatus())
+                .isActive(room.getIsActive())
+                .build();
+    }
+
     @Override
     @Transactional(readOnly = true)
-    public StandardResponse<?> getArrivals(LocalDate date, String search, boolean checkout) {
-        log.info("Fetching listing date={}, search={}, checkout={}", date, search, checkout);
+    public StandardResponse<?> getArrivals(LocalDate date, String searchText, boolean checkout, int page, int size) {
+        log.info("Fetching listing date={}, search={}, checkout={}, page={}, size={}", date, searchText, checkout, page, size);
         try {
             LocalDate targetDate = date != null ? date : LocalDate.now();
-            List<Booking> allBookings = bookingRepository.findByIsDeletedFalse();
+            Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "id")); // Or sort by time if available
             
-            // Filter by date
-            List<Booking> dayBookings = allBookings.stream()
-                    .filter(b -> checkout ? targetDate.equals(b.getCheckOutDate()) : targetDate.equals(b.getCheckInDate()))
-                    .collect(Collectors.toList());
+            Specification<Booking> spec = (root, query, cb) -> {
+                List<Predicate> predicates = new ArrayList<>();
+                predicates.add(cb.equal(root.get("isDeleted"), false));
+                
+                // Date filter based on checkout flag
+                if (checkout) {
+                    predicates.add(cb.equal(root.get("checkOutDate"), targetDate));
+                } else {
+                    predicates.add(cb.equal(root.get("checkInDate"), targetDate));
+                }
+                
+                // Search filter (bookingId or guest name)
+                if (searchText != null && !searchText.trim().isEmpty()) {
+                    String pattern = "%" + searchText.trim().toLowerCase() + "%";
+                    // Handle numeric ID if search looks like a number
+                    Predicate searchPred;
+                    try {
+                        Long id = Long.parseLong(searchText.trim().replaceAll("[^0-9]", ""));
+                        searchPred = cb.or(
+                            cb.equal(root.get("id"), id),
+                            cb.like(cb.lower(root.get("reservation").get("guest").get("firstName")), pattern),
+                            cb.like(cb.lower(root.get("reservation").get("guest").get("lastName")), pattern)
+                        );
+                    } catch (NumberFormatException e) {
+                        searchPred = cb.or(
+                            cb.like(cb.lower(root.get("reservation").get("guest").get("firstName")), pattern),
+                            cb.like(cb.lower(root.get("reservation").get("guest").get("lastName")), pattern)
+                        );
+                    }
+                    predicates.add(searchPred);
+                }
+                
+                return cb.and(predicates.toArray(new Predicate[0]));
+            };
 
-            // Compute counts
+            Page<Booking> bookingPage = bookingRepository.findAll(spec, pageable);
+            
+            // For stats, we need non-paged counts of processed vs pending for THIS target date
+            // Simpler to just query them specifically or use existing paged info if not needed to be precise for the whole day
+            // But we'll do quick count queries for stats
             long pendingCount;
             long processedCount;
+            
             if (checkout) {
-                pendingCount = dayBookings.stream()
-                        .filter(b -> b.getBookingStatus() == Booking.BookingStatus.CHECKED_IN)
-                        .count();
-                processedCount = dayBookings.stream()
-                        .filter(b -> b.getBookingStatus() == Booking.BookingStatus.CHECKED_OUT)
-                        .count();
+                pendingCount = bookingRepository.count((root, query, cb) -> 
+                    cb.and(cb.equal(root.get("isDeleted"), false), 
+                           cb.equal(root.get("checkOutDate"), targetDate),
+                           cb.equal(root.get("bookingStatus"), Booking.BookingStatus.CHECKED_IN)));
+                processedCount = bookingRepository.count((root, query, cb) -> 
+                    cb.and(cb.equal(root.get("isDeleted"), false), 
+                           cb.equal(root.get("checkOutDate"), targetDate),
+                           cb.equal(root.get("bookingStatus"), Booking.BookingStatus.CHECKED_OUT)));
             } else {
-                pendingCount = dayBookings.stream()
-                        .filter(b -> b.getBookingStatus() == Booking.BookingStatus.PENDING 
-                                || b.getBookingStatus() == Booking.BookingStatus.CONFIRMED)
-                        .count();
-                processedCount = dayBookings.stream()
-                        .filter(b -> b.getBookingStatus() == Booking.BookingStatus.CHECKED_IN)
-                        .count();
+                pendingCount = bookingRepository.count((root, query, cb) -> 
+                    cb.and(cb.equal(root.get("isDeleted"), false), 
+                           cb.equal(root.get("checkInDate"), targetDate),
+                           cb.or(cb.equal(root.get("bookingStatus"), Booking.BookingStatus.PENDING),
+                                 cb.equal(root.get("bookingStatus"), Booking.BookingStatus.CONFIRMED))));
+                processedCount = bookingRepository.count((root, query, cb) -> 
+                    cb.and(cb.equal(root.get("isDeleted"), false), 
+                           cb.equal(root.get("checkInDate"), targetDate),
+                           cb.equal(root.get("bookingStatus"), Booking.BookingStatus.CHECKED_IN)));
             }
 
-            long totalCount = pendingCount + processedCount;
-
-            // Apply search filter if provided
-            List<Booking> filteredBookings = dayBookings;
-            if (search != null && !search.trim().isEmpty()) {
-                String query = search.trim().toLowerCase();
-                filteredBookings = dayBookings.stream()
-                        .filter(b -> {
-                            Guest g = b.getReservation().getGuest();
-                            String fullName = (g.getFirstName() + " " + g.getLastName()).toLowerCase();
-                            String bookingRef = ("bk-" + b.getId()).toLowerCase();
-                            String roomNum = b.getRoom() != null ? b.getRoom().getRoomNumber().toLowerCase() : "";
-                            return fullName.contains(query) || bookingRef.contains(query) 
-                                    || b.getId().toString().contains(query) || roomNum.contains(query);
-                        })
-                        .collect(Collectors.toList());
-            }
-
-            // Map to ArrivalBookingResponse
-            List<ArrivalBookingResponse> arrivals = filteredBookings.stream()
+            List<ArrivalBookingResponse> arrivals = bookingPage.getContent().stream()
                     .map(b -> {
                         Guest g = b.getReservation().getGuest();
                         
-                        // Calculate Balance
+                        // Calculate Balance (simplified logic as before)
                         BigDecimal totalCharges;
                         BigDecimal paidAmount = BigDecimal.ZERO;
                         Optional<Bill> optBill = billRepository.findByBooking_Id(b.getId());
@@ -626,22 +680,14 @@ public class ReservationServiceImpl implements ReservationService {
 
                         String statusStr;
                         if (checkout) {
-                            if (b.getBookingStatus() == Booking.BookingStatus.CHECKED_IN) {
-                                statusStr = "Pending";
-                            } else if (b.getBookingStatus() == Booking.BookingStatus.CHECKED_OUT) {
-                                statusStr = "Checked Out";
-                            } else {
-                                statusStr = b.getBookingStatus().name();
-                            }
+                            if (b.getBookingStatus() == Booking.BookingStatus.CHECKED_IN) statusStr = "Pending";
+                            else if (b.getBookingStatus() == Booking.BookingStatus.CHECKED_OUT) statusStr = "Checked Out";
+                            else statusStr = b.getBookingStatus().name();
                         } else {
                             if (b.getBookingStatus() == Booking.BookingStatus.PENDING 
-                                    || b.getBookingStatus() == Booking.BookingStatus.CONFIRMED) {
-                                statusStr = "Pending";
-                            } else if (b.getBookingStatus() == Booking.BookingStatus.CHECKED_IN) {
-                                statusStr = "Checked In";
-                            } else {
-                                statusStr = b.getBookingStatus().name();
-                            }
+                                    || b.getBookingStatus() == Booking.BookingStatus.CONFIRMED) statusStr = "Pending";
+                            else if (b.getBookingStatus() == Booking.BookingStatus.CHECKED_IN) statusStr = "Checked In";
+                            else statusStr = b.getBookingStatus().name();
                         }
 
                         return ArrivalBookingResponse.builder()
@@ -665,10 +711,16 @@ public class ReservationServiceImpl implements ReservationService {
                     .arrivals(arrivals)
                     .pendingArrivalsCount(pendingCount)
                     .checkedInCount(processedCount)
-                    .totalExpectedCount(totalCount)
+                    .totalExpectedCount(pendingCount + processedCount)
                     .build();
 
-            return StandardResponse.success(response, checkout ? "Departures fetched successfully" : "Arrivals fetched successfully");
+            StandardResponse.ResponseMetadata meta = StandardResponse.ResponseMetadata.builder()
+                    .totalRecords(bookingPage.getTotalElements())
+                    .currentPage(page)
+                    .pageSize(size)
+                    .build();
+
+            return StandardResponse.success(response, checkout ? "Departures fetched successfully" : "Arrivals fetched successfully", meta);
         } catch (Exception e) {
             log.error("Error fetching arrivals/departures: ", e);
             return StandardResponse.error("Failed to fetch list", "FETCH_LIST_ERROR", null, e.getMessage());

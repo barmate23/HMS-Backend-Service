@@ -7,6 +7,10 @@ import com.hotelerp.frontoffice.dto.ReservationRequest;
 
 import java.time.LocalDate;
 
+import com.hotelerp.frontoffice.entity.Reservation;
+
+import java.time.LocalDate;
+
 public interface ReservationService {
 
     /** Create a reservation + one booking row per selected room */
@@ -15,8 +19,9 @@ public interface ReservationService {
     /** Fetch full detail for a single reservation (for detail/edit view) */
     StandardResponse<?> getReservationById(Long id);
 
-    /** Listing: slim response with only fields visible on the list screen */
-    StandardResponse<?> getAllReservations(String search);
+    /** Listing: slim response with only fields visible on the list screen (with filters and paging) */
+    StandardResponse<?> getAllReservations(String searchText, Reservation.ReservationStatus status, 
+                                           LocalDate fromDate, LocalDate toDate, int page, int size);
 
     /** Listing: slim reservations for a specific guest */
     StandardResponse<?> getReservationsByGuest(Long guestId);
@@ -30,8 +35,8 @@ public interface ReservationService {
     /** Return available rooms for a hotel on the given date range */
     StandardResponse<?> getAvailableRooms(Long floorId, LocalDate checkIn, LocalDate checkOut);
 
-    /** 1> Get arrivals or departures list (with stats) based on checkout flag */
-    StandardResponse<?> getArrivals(LocalDate date, String search, boolean checkout);
+    /** 1> Get arrivals or departures list (with stats) based on date, search and paging */
+    StandardResponse<?> getArrivals(LocalDate date, String searchText, boolean checkout, int page, int size);
 
     /** 2> Get check-in popup details */
     StandardResponse<?> getCheckInDetails(Long bookingId);

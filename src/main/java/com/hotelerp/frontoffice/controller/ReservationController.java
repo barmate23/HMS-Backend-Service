@@ -48,8 +48,13 @@ public class ReservationController {
 
     @GetMapping(ServiceConstants.RESERVATION_BASE_URL + ServiceConstants.GET_ALL_RESERVATIONS)
     public ResponseEntity<StandardResponse<?>> getAllReservations(
-            @RequestParam(required = false) String search) {
-        return ResponseEntity.ok(reservationService.getAllReservations(search));
+            @RequestParam(required = false) String searchText,
+            @RequestParam(required = false) Reservation.ReservationStatus status,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return ResponseEntity.ok(reservationService.getAllReservations(searchText, status, fromDate, toDate, page, size));
     }
 
     @GetMapping(ServiceConstants.RESERVATION_BASE_URL + ServiceConstants.GET_RESERVATIONS_BY_GUEST)

@@ -24,9 +24,11 @@ public class CheckInOutController {
     @GetMapping(ServiceConstants.RESERVATION_BASE_URL + ServiceConstants.GET_ARRIVALS)
     public ResponseEntity<StandardResponse<?>> getArrivals(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-            @RequestParam(required = false) String search,
-            @RequestParam(required = false, defaultValue = "false") boolean checkout) {
-        return ResponseEntity.ok(reservationService.getArrivals(date, search, checkout));
+            @RequestParam(required = false) String searchText,
+            @RequestParam(required = false, defaultValue = "false") boolean checkout,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return ResponseEntity.ok(reservationService.getArrivals(date, searchText, checkout, page, size));
     }
 
     @GetMapping(ServiceConstants.RESERVATION_BASE_URL + ServiceConstants.GET_CHECKIN_DETAILS)
