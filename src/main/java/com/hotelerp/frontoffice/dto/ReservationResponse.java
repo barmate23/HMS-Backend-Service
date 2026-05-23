@@ -39,7 +39,7 @@ public class ReservationResponse {
     public static class RoomSummary {
         private String roomNumber;      // e.g. "102"
         private String roomTypeName;    // e.g. "Double", "Suite"
-        private String ratePlanCode;    // e.g. "CP", "MAP"
+        private String ratePlanName;    // e.g. "European Plan", "Breakfast Included"
     }
 
     // ── STAY PERIOD column ─────────────────────────────────────────────────

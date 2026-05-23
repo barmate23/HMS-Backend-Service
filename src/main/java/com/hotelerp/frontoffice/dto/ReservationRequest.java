@@ -76,7 +76,7 @@ public class ReservationRequest {
     private List<Long> roomIds;
 
     @NotNull(message = "Rate plan is required")
-    private Reservation.RatePlan ratePlan;
+    private Long ratePlanId;
 
     // ── Billing Profile ────────────────────────────────────────────────────
 

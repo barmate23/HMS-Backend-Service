@@ -29,14 +29,7 @@ public class ReservationServiceImpl implements ReservationService {
     private final BillRepository        billRepository;
     private final PaymentRepository     paymentRepository;
     private final RoomAuditRepository   roomAuditRepository;
-
-    // Rate-plan add-ons per night (INR) — adjust or externalise as needed
-    private static final Map<Reservation.RatePlan, BigDecimal> RATE_PLAN_CHARGES = Map.of(
-            Reservation.RatePlan.EP,  BigDecimal.ZERO,
-            Reservation.RatePlan.CP,  new BigDecimal("500"),
-            Reservation.RatePlan.MAP, new BigDecimal("900"),
-            Reservation.RatePlan.AP,  new BigDecimal("1400")
-    );
+    private final RatePlanRepository    ratePlanRepository;
 
     // ── Create ─────────────────────────────────────────────────────────────
 
@@ -119,6 +112,12 @@ public class ReservationServiceImpl implements ReservationService {
             }
 
             // 5. Build Reservation
+            RatePlan ratePlan = ratePlanRepository.findById(req.getRatePlanId())
+                    .orElse(null);
+            if (ratePlan == null) {
+                return StandardResponse.error("Rate plan not found", "RATE_PLAN_NOT_FOUND", "ratePlanId", null);
+            }
+
             Reservation reservation = Reservation.builder()
                     .guest(guest)
                     .hotel(rooms.get(0).getFloor().getHotel())
@@ -133,7 +132,7 @@ public class ReservationServiceImpl implements ReservationService {
                     .reservationStatus(req.getReservationStatus() != null
                             ? req.getReservationStatus()
                             : Reservation.ReservationStatus.CONFIRMED)
-                    .ratePlan(req.getRatePlan())
+                    .ratePlan(ratePlan)
                     .billingName(req.getBillingName())
                     .billingAddress(req.getBillingAddress())
                     .specialRequests(req.getSpecialRequests())
@@ -144,7 +143,7 @@ public class ReservationServiceImpl implements ReservationService {
             Reservation savedReservation = reservationRepository.save(reservation);
 
             // 6. Build one Booking per room
-            BigDecimal ratePlanCharge = RATE_PLAN_CHARGES.getOrDefault(req.getRatePlan(), BigDecimal.ZERO);
+            BigDecimal ratePlanCharge = ratePlan.getPriceAdjustment() != null ? ratePlan.getPriceAdjustment() : BigDecimal.ZERO;
             List<Booking> bookings = new ArrayList<>();
 
             for (Room room : rooms) {
@@ -380,7 +379,7 @@ public class ReservationServiceImpl implements ReservationService {
                         .roomNumber(b.getRoom().getRoomNumber())
                         .roomTypeName(b.getRoom().getRoomType() != null
                                 ? b.getRoom().getRoomType().getName() : null)
-                        .ratePlanCode(r.getRatePlan() != null ? r.getRatePlan().name() : null)
+                        .ratePlanName(r.getRatePlan() != null ? r.getRatePlan().getName() : null)
                         .build())
                 .collect(Collectors.toList());
 
@@ -444,7 +443,8 @@ public class ReservationServiceImpl implements ReservationService {
                 .numberOfAdults(r.getNumberOfAdults())
                 .numberOfChildren(r.getNumberOfChildren())
                 .reservationStatus(r.getReservationStatus())
-                .ratePlan(r.getRatePlan())
+                .ratePlanId(r.getRatePlan() != null ? r.getRatePlan().getId() : null)
+                .ratePlanName(r.getRatePlan() != null ? r.getRatePlan().getName() : null)
                 .numberOfRooms(r.getNumberOfRooms())
                 .bookings(bookings.stream().map(this::mapBookingToResponse).collect(Collectors.toList()))
                 .billingName(r.getBillingName())
@@ -686,11 +686,7 @@ public class ReservationServiceImpl implements ReservationService {
             Guest g = res.getGuest();
             
             // Map Rate Plan to a descriptive string
-            String ratePlanName = res.getRatePlan() != null ? res.getRatePlan().name() : "";
-            if (res.getRatePlan() == Reservation.RatePlan.EP) ratePlanName = "Room Only (EP)";
-            else if (res.getRatePlan() == Reservation.RatePlan.CP) ratePlanName = "Breakfast Included (CP)";
-            else if (res.getRatePlan() == Reservation.RatePlan.MAP) ratePlanName = "Half Board (MAP)";
-            else if (res.getRatePlan() == Reservation.RatePlan.AP) ratePlanName = "Full Board (AP)";
+            String ratePlanName = res.getRatePlan() != null ? res.getRatePlan().getName() : "";
 
             // Occupancy string
             String occupancy = res.getNumberOfAdults() + " Adults";

@@ -76,10 +76,9 @@ public class Reservation {
 
     // ── Rate Plan ─────────────────────────────────────────────────────────
 
-    @Builder.Default
-    @Enumerated(EnumType.STRING)
-    @Column(name = "ratePlan", nullable = false, length = 10)
-    private RatePlan ratePlan = RatePlan.EP;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ratePlanId", nullable = false)
+    private RatePlan ratePlan;
 
     // ── Billing ───────────────────────────────────────────────────────────
 
@@ -121,15 +120,5 @@ public class Reservation {
 
     public enum ReservationStatus {
         PENDING, CONFIRMED, CHECKED_IN, CHECKED_OUT, CANCELLED, NO_SHOW
-    }
-
-    /**
-     * EP  – European Plan (Room Only)
-     * CP  – Continental Plan (Room + Breakfast)
-     * MAP – Modified American Plan (Room + Breakfast + Dinner)
-     * AP  – American Plan (All Meals Included)
-     */
-    public enum RatePlan {
-        EP, CP, MAP, AP
     }
 }

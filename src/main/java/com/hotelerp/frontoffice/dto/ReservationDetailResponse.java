@@ -45,7 +45,8 @@ public class ReservationDetailResponse {
 
     // ── Status & Plan ──────────────────────────────────────────────────────
     private Reservation.ReservationStatus reservationStatus;
-    private Reservation.RatePlan          ratePlan;
+    private Long                          ratePlanId;
+    private String                        ratePlanName;
 
     // ── Rooms & Booking Lines ──────────────────────────────────────────────
     private Integer              numberOfRooms;

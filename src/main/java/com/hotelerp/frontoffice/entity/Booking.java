@@ -58,7 +58,7 @@ public class Booking {
     @Column(name = "ratePerNight", nullable = false, precision = 10, scale = 2)
     private BigDecimal ratePerNight;
 
-    /** Rate-plan add-on per night (EP=0, CP=500, MAP=900, AP=1400 etc.) */
+    /** Rate-plan add-on per night (extracted from RatePlan entity) */
     @Builder.Default
     @Column(name = "ratePlanCharge", precision = 10, scale = 2)
     private BigDecimal ratePlanCharge = BigDecimal.ZERO;
