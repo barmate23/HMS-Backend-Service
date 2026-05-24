@@ -126,7 +126,6 @@ public class ReservationServiceImpl implements ReservationService {
 
             Reservation reservation = Reservation.builder()
                     .guest(guest)
-                    .hotel(rooms.get(0).getFloor().getHotel())
                     .checkInDate(req.getCheckInDate())
                     .checkInTime(req.getCheckInTime() != null ? req.getCheckInTime() : LocalTime.of(14, 0))
                     .checkOutDate(req.getCheckOutDate())
@@ -465,6 +464,7 @@ public class ReservationServiceImpl implements ReservationService {
         }
 
         Guest g = r.getGuest();
+       Hotel hotel = bookings.get(0).getRoom().getFloor().getHotel();
         return ReservationDetailResponse.builder()
                 .id(r.getId())
                 .guestId(g.getId())
@@ -474,8 +474,8 @@ public class ReservationServiceImpl implements ReservationService {
                 .guestPhone(g.getPhone())
                 .guestIsVip(g.getIsVip())
                 .guestBadge(resolveGuestBadge(g))
-                .hotelId(r.getHotel() != null ? r.getHotel().getId() : null)
-                .hotelName(r.getHotel() != null ? r.getHotel().getName() : null)
+                .hotelId(hotel.getId())
+                .hotelName(hotel.getName())
                 .checkInDate(r.getCheckInDate())
                 .checkInTime(r.getCheckInTime())
                 .checkOutDate(r.getCheckOutDate())
@@ -736,7 +736,6 @@ public class ReservationServiceImpl implements ReservationService {
                     .orElseThrow(() -> new IllegalArgumentException("Booking not found with ID: " + bookingId));
             Reservation res = b.getReservation();
             Guest g = res.getGuest();
-            
             // Map Rate Plan to a descriptive string
             String ratePlanName = res.getRatePlan() != null ? res.getRatePlan().getName() : "";
 
@@ -762,7 +761,7 @@ public class ReservationServiceImpl implements ReservationService {
             BigDecimal balanceDue = totalEstBill.subtract(paidAmount);
 
             // Available rooms of the same type
-            List<Room> vacantRooms = roomRepository.findAvailableRooms(res.getHotel().getId(), b.getCheckInDate(), b.getCheckOutDate());
+            List<Room> vacantRooms = roomRepository.findAvailableRooms(b.getRoom().getFloor().getHotel().getId(), b.getCheckInDate(), b.getCheckOutDate());
             List<AvailableRoomSummary> availableRooms = vacantRooms.stream()
                     .filter(r -> r.getRoomType() != null && b.getRoom().getRoomType() != null 
                             && r.getRoomType().getId().equals(b.getRoom().getRoomType().getId()))
