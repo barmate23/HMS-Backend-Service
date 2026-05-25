@@ -16,6 +16,9 @@ public interface ReservationService {
     /** Create a reservation + one booking row per selected room */
     StandardResponse<?> createReservation(ReservationRequest request);
 
+    /** Update a reservation and all associated bookings */
+    StandardResponse<?> updateReservation(Long id, ReservationRequest request);
+
     /** Fetch full detail for a single reservation (for detail/edit view) */
     StandardResponse<?> getReservationById(Long id);
 

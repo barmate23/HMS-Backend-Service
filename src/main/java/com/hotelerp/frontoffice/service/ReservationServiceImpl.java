@@ -201,6 +201,186 @@ public class ReservationServiceImpl implements ReservationService {
         }
     }
 
+    @Override
+    @Transactional
+    public StandardResponse<?> updateReservation(Long id, ReservationRequest req) {
+        log.info("Updating reservation id={}, guestId={}, rooms={}", id, req.getGuestId(), req.getRoomIds());
+        try {
+            // 1. Fetch existing reservation
+            Reservation reservation = reservationRepository.findByIdAndIsDeletedFalse(id)
+                    .orElse(null);
+            if (reservation == null) {
+                return StandardResponse.error("Reservation not found", "NOT_FOUND", "id", null);
+            }
+
+            // 2. Validate dates
+            if (!req.getCheckOutDate().isAfter(req.getCheckInDate())) {
+                return StandardResponse.error("Check-out date must be after check-in date",
+                        "INVALID_DATES", "checkOutDate", null);
+            }
+
+            long nights = ChronoUnit.DAYS.between(req.getCheckInDate(), req.getCheckOutDate());
+
+            // 3. Resolve/Update Guest
+            Guest guest = null;
+            if (req.getGuestId() != null) {
+                guest = guestRepository.findById(req.getGuestId())
+                        .filter(g -> !Boolean.TRUE.equals(g.getIsDeleted()))
+                        .orElse(null);
+                if (guest == null) {
+                    return StandardResponse.error("Guest not found", "GUEST_NOT_FOUND", "guestId", null);
+                }
+            } else if (req.getGuestDetails() != null) {
+                // If existing guest email is changing, handle it
+                GuestRequest gd = req.getGuestDetails();
+                guest = guestRepository.findByEmailAndIsDeletedFalse(gd.getEmail()).orElse(null);
+                if (guest == null) {
+                    guest = buildInlineGuest(gd);
+                    guest = guestRepository.save(guest);
+                } else {
+                    // Update existing guest details
+                    updateGuestFromDetails(guest, gd);
+                    guest = guestRepository.save(guest);
+                }
+            }
+
+            if (guest != null) {
+                reservation.setGuest(guest);
+            }
+
+            // 4. Resolve Rate Plan
+            RatePlan ratePlan = ratePlanRepository.findById(req.getRatePlanId())
+                    .orElse(null);
+            if (ratePlan == null) {
+                return StandardResponse.error("Rate plan not found", "RATE_PLAN_NOT_FOUND", "ratePlanId", null);
+            }
+
+            // 5. Update Basic Info
+            reservation.setCheckInDate(req.getCheckInDate());
+            reservation.setCheckInTime(req.getCheckInTime() != null ? req.getCheckInTime() : LocalTime.of(14, 0));
+            reservation.setCheckOutDate(req.getCheckOutDate());
+            reservation.setCheckOutTime(req.getCheckOutTime() != null ? req.getCheckOutTime() : LocalTime.of(11, 0));
+            reservation.setNumberOfNights((int) nights);
+            reservation.setNumberOfAdults(req.getNumberOfAdults());
+            reservation.setNumberOfChildren(req.getNumberOfChildren() != null ? req.getNumberOfChildren() : 0);
+            reservation.setReservationStatus(req.getReservationStatus());
+            reservation.setRatePlan(ratePlan);
+            reservation.setBillingName(req.getBillingName());
+            reservation.setBillingAddress(req.getBillingAddress());
+            reservation.setSpecialRequests(req.getSpecialRequests());
+            reservation.setNotes(req.getNotes());
+            reservation.setUpdatedAt(LocalDateTime.now());
+
+            // 6. Handle Bookings (Rooms)
+            List<Booking> currentBookings = bookingRepository.findByReservation_IdAndIsDeletedFalse(id);
+
+            // Check for room availability for new/changed dates, excluding current reservation's own bookings
+            for (Long roomId : req.getRoomIds()) {
+                if (bookingRepository.isRoomBookedExcludingReservation(roomId, id, req.getCheckInDate(), req.getCheckOutDate())) {
+                    Room r = roomRepository.findById(roomId).orElse(null);
+                    String rNum = r != null ? r.getRoomNumber() : roomId.toString();
+                    return StandardResponse.error("Room " + rNum + " is already booked by another reservation for these dates",
+                            "ROOM_UNAVAILABLE", "roomIds", "roomId=" + roomId);
+                }
+            }
+
+            // Simple approach: Soft-delete all existing bookings for this reservation and recreate them.
+            // This ensures all pricing, dates, and room assignments are refreshed.
+            currentBookings.forEach(b -> b.setIsDeleted(true));
+            bookingRepository.saveAll(currentBookings);
+
+            BigDecimal ratePlanCharge = ratePlan.getPriceAdjustment() != null ? ratePlan.getPriceAdjustment() : BigDecimal.ZERO;
+            List<Booking> newBookings = new ArrayList<>();
+
+            for (Long roomId : req.getRoomIds()) {
+                Room room = roomRepository.findById(roomId)
+                        .filter(r -> Boolean.TRUE.equals(r.getIsActive()))
+                        .orElseThrow(() -> new IllegalArgumentException("Room " + roomId + " not found"));
+
+                BigDecimal ratePerNight = room.getRoomType().getBasePricePerNight();
+                BigDecimal effectiveRate = ratePerNight.add(ratePlanCharge);
+                BigDecimal total = effectiveRate.multiply(BigDecimal.valueOf(nights));
+
+                Booking booking = Booking.builder()
+                        .reservation(reservation)
+                        .room(room)
+                        .checkInDate(req.getCheckInDate())
+                        .checkOutDate(req.getCheckOutDate())
+                        .numberOfNights((int) nights)
+                        .ratePerNight(ratePerNight)
+                        .ratePlanCharge(ratePlanCharge)
+                        .totalPrice(total)
+                        .discountPercentage(BigDecimal.ZERO)
+                        .discountAmount(BigDecimal.ZERO)
+                        .finalPrice(total)
+                        .bookingStatus(mapResStatusToBookingStatus(req.getReservationStatus()))
+                        .isDeleted(false)
+                        .build();
+
+                newBookings.add(booking);
+            }
+
+            List<Booking> savedBookings = bookingRepository.saveAll(newBookings);
+            reservationRepository.save(reservation);
+
+            // Audit
+            for (Booking sb : savedBookings) {
+                RoomAudit audit = RoomAudit.builder()
+                        .room(sb.getRoom())
+                        .booking(sb)
+                        .operationType("UPDATE_RESERVATION")
+                        .amountPaid(BigDecimal.ZERO)
+                        .notes("Reservation updated. Id=" + id)
+                        .createdAt(LocalDateTime.now())
+                        .build();
+                roomAuditRepository.save(audit);
+            }
+
+            return StandardResponse.success(mapToResponse(reservation, savedBookings), "Reservation updated successfully");
+
+        } catch (Exception e) {
+            log.error("Error updating reservation id={}: ", id, e);
+            return StandardResponse.error("Failed to update reservation", "UPDATE_ERROR", null, e.getMessage());
+        }
+    }
+
+    private void updateGuestFromDetails(Guest guest, GuestRequest gd) {
+        guest.setTitle(gd.getTitle());
+        guest.setFirstName(gd.getFirstName());
+        guest.setLastName(gd.getLastName());
+        guest.setCountryCode(gd.getCountryCode());
+        guest.setPhone(gd.getPhone());
+        guest.setAddressLine1(gd.getAddressLine1());
+        guest.setAddressLine2(gd.getAddressLine2());
+        guest.setCity(gd.getCity());
+        guest.setState(gd.getState());
+        guest.setPostCode(gd.getPostCode());
+        guest.setCountry(gd.getCountry());
+        guest.setNationality(gd.getNationality());
+        guest.setGender(gd.getGender());
+        guest.setDateOfBirth(gd.getDateOfBirth());
+        guest.setIdProofType(gd.getIdProofType());
+        guest.setIdProofNumber(gd.getIdProofNumber());
+        guest.setGuestNotes(gd.getGuestNotes());
+        guest.setPreference(gd.getPreference());
+        guest.setIsVip(gd.getIsVip() != null ? gd.getIsVip() : guest.getIsVip());
+        guest.setUpdatedAt(LocalDateTime.now());
+    }
+
+    private Booking.BookingStatus mapResStatusToBookingStatus(Reservation.ReservationStatus status) {
+        if (status == null) return Booking.BookingStatus.CONFIRMED;
+        switch (status) {
+            case PENDING: return Booking.BookingStatus.PENDING;
+            case CONFIRMED: return Booking.BookingStatus.CONFIRMED;
+            case CHECKED_IN: return Booking.BookingStatus.CHECKED_IN;
+            case CHECKED_OUT: return Booking.BookingStatus.CHECKED_OUT;
+            case CANCELLED: return Booking.BookingStatus.CANCELLED;
+            case NO_SHOW: return Booking.BookingStatus.NO_SHOW;
+            default: return Booking.BookingStatus.CONFIRMED;
+        }
+    }
+
+
     // ── Read ───────────────────────────────────────────────────────────────
 
     @Override
@@ -331,6 +511,7 @@ public class ReservationServiceImpl implements ReservationService {
                         .build();
                 roomAuditRepository.save(audit);
             });
+            bookingRepository.saveAll(resBookings);
             reservationRepository.save(reservation);
 
             log.info("Reservation id={} cancelled successfully", id);
@@ -432,11 +613,11 @@ public class ReservationServiceImpl implements ReservationService {
 
         return ReservationResponse.builder()
                 .id(r.getId())
-                .guestId(g.getId())
-                .guestInitials(extractInitials(g.getFirstName(), g.getLastName()))
-                .guestFullName(g.getFirstName() + " " + g.getLastName())
-                .guestPhone(g.getPhone())
-                .guestBadge(resolveGuestBadge(g))
+                .guestId(g != null ? g.getId() : null)
+                .guestInitials(g != null ? extractInitials(g.getFirstName(), g.getLastName()) : null)
+                .guestFullName(g != null ? g.getFirstName() + " " + g.getLastName() : "Unknown")
+                .guestPhone(g != null ? g.getPhone() : null)
+                .guestBadge(g != null ? resolveGuestBadge(g) : null)
                 .checkInDate(r.getCheckInDate())
                 .checkOutDate(r.getCheckOutDate())
                 .numberOfNights(r.getNumberOfNights())
@@ -478,8 +659,8 @@ public class ReservationServiceImpl implements ReservationService {
         Long hotelId = null;
         String hotelName = null;
 
-        if (!bookings.isEmpty() && bookings.get(0).getRoom() != null && 
-            bookings.get(0).getRoom().getFloor() != null && 
+        if (!bookings.isEmpty() && bookings.get(0).getRoom() != null &&
+            bookings.get(0).getRoom().getFloor() != null &&
             bookings.get(0).getRoom().getFloor().getHotel() != null) {
             Hotel hotel = bookings.get(0).getRoom().getFloor().getHotel();
             hotelId = hotel.getId();

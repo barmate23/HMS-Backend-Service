@@ -42,6 +42,13 @@ public class ReservationController {
         return ResponseEntity.ok(reservationService.createReservation(request));
     }
 
+    @PutMapping(ServiceConstants.RESERVATION_BASE_URL + ServiceConstants.UPDATE_RESERVATION)
+    public ResponseEntity<StandardResponse<?>> updateReservation(
+            @PathVariable Long id,
+            @Valid @RequestBody ReservationRequest request) {
+        return ResponseEntity.ok(reservationService.updateReservation(id, request));
+    }
+
     @GetMapping(ServiceConstants.RESERVATION_BASE_URL + ServiceConstants.GET_RESERVATION_BY_ID)
     public ResponseEntity<StandardResponse<?>> getReservationById(@PathVariable Long id) {
         return ResponseEntity.ok(reservationService.getReservationById(id));

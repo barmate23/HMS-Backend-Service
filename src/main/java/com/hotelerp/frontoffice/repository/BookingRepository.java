@@ -49,6 +49,22 @@ public interface BookingRepository extends JpaRepository<Booking, Long>, JpaSpec
             @Param("checkOut")  LocalDate checkOut);
 
     /**
+     * Check if a room is booked by OTHER reservations.
+     */
+    @Query("SELECT COUNT(b) > 0 FROM Booking b " +
+           "WHERE b.room.id = :roomId " +
+           "AND b.reservation.id <> :resId " +
+           "AND b.isDeleted = false " +
+           "AND b.bookingStatus NOT IN (com.hotelerp.frontoffice.entity.Booking.BookingStatus.CANCELLED) " +
+           "AND b.checkInDate < :checkOut " +
+           "AND b.checkOutDate > :checkIn")
+    boolean isRoomBookedExcludingReservation(
+            @Param("roomId")    Long roomId,
+            @Param("resId")     Long resId,
+            @Param("checkIn")   LocalDate checkIn,
+            @Param("checkOut")  LocalDate checkOut);
+
+    /**
      * Fetch all active bookings overlapping a specific date range.
      * Used for Gantt chart view.
      */
