@@ -469,18 +469,28 @@ public class ReservationServiceImpl implements ReservationService {
         }
 
         Guest g = r.getGuest();
-        Hotel hotel = bookings.get(0).getRoom().getFloor().getHotel();
+        Long hotelId = null;
+        String hotelName = null;
+
+        if (!bookings.isEmpty() && bookings.get(0).getRoom() != null && 
+            bookings.get(0).getRoom().getFloor() != null && 
+            bookings.get(0).getRoom().getFloor().getHotel() != null) {
+            Hotel hotel = bookings.get(0).getRoom().getFloor().getHotel();
+            hotelId = hotel.getId();
+            hotelName = hotel.getName();
+        }
+
         return ReservationDetailResponse.builder()
                 .id(r.getId())
-                .guestId(g.getId())
-                .guestInitials(extractInitials(g.getFirstName(), g.getLastName()))
-                .guestFullName(g.getFirstName() + " " + g.getLastName())
-                .guestEmail(g.getEmail())
-                .guestPhone(g.getPhone())
-                .guestIsVip(g.getIsVip())
-                .guestBadge(resolveGuestBadge(g))
-                .hotelId(hotel.getId())
-                .hotelName(hotel.getName())
+                .guestId(g != null ? g.getId() : null)
+                .guestInitials(g != null ? extractInitials(g.getFirstName(), g.getLastName()) : null)
+                .guestFullName(g != null ? g.getFirstName() + " " + g.getLastName() : "Unknown")
+                .guestEmail(g != null ? g.getEmail() : null)
+                .guestPhone(g != null ? g.getPhone() : null)
+                .guestIsVip(g != null ? g.getIsVip() : false)
+                .guestBadge(g != null ? resolveGuestBadge(g) : null)
+                .hotelId(hotelId)
+                .hotelName(hotelName)
                 .checkInDate(r.getCheckInDate())
                 .checkInTime(r.getCheckInTime())
                 .checkOutDate(r.getCheckOutDate())
@@ -529,10 +539,10 @@ public class ReservationServiceImpl implements ReservationService {
         return BookingResponse.builder()
                 .id(b.getId())
                 .reservationId(b.getReservation() != null ? b.getReservation().getId() : null)
-                .roomId(room.getId())
-                .roomNumber(room.getRoomNumber())
-                .roomTypeName(room.getRoomType() != null ? room.getRoomType().getName() : null)
-                .floor(room.getFloor().getFloorNumber())
+                .roomId(room != null ? room.getId() : null)
+                .roomNumber(room != null ? room.getRoomNumber() : null)
+                .roomTypeName(room != null && room.getRoomType() != null ? room.getRoomType().getName() : null)
+                .floor(room != null && room.getFloor() != null ? room.getFloor().getFloorNumber() : null)
                 .checkInDate(b.getCheckInDate())
                 .checkOutDate(b.getCheckOutDate())
                 .numberOfNights(b.getNumberOfNights())
