@@ -177,7 +177,6 @@ public class ReservationServiceImpl implements ReservationService {
             }
 
             List<Booking> savedBookings = bookingRepository.saveAll(bookings);
-            savedReservation.setBookings(savedBookings);
 
             // Write Room Audit Logs for Reservation Creation
             for (Booking sb : savedBookings) {
@@ -194,7 +193,7 @@ public class ReservationServiceImpl implements ReservationService {
             }
 
             log.info("Reservation created id={}, bookings={}", savedReservation.getId(), savedBookings.size());
-            return StandardResponse.success(mapToResponse(savedReservation), "Reservation created successfully");
+            return StandardResponse.success(mapToResponse(savedReservation, savedBookings), "Reservation created successfully");
 
         } catch (Exception e) {
             log.error("Error creating reservation: ", e);
@@ -211,7 +210,7 @@ public class ReservationServiceImpl implements ReservationService {
         try {
             return reservationRepository.findByIdAndIsDeletedFalse(id)
                     .map(r -> StandardResponse.success(
-                            mapToDetailResponse(r),
+                            mapToDetailResponse(r, bookingRepository.findByReservation_IdAndIsDeletedFalse(id)),
                             "Reservation fetched successfully"))
                     .orElseGet(() -> StandardResponse.error(
                             "Reservation not found",
@@ -271,7 +270,7 @@ public class ReservationServiceImpl implements ReservationService {
             Page<Reservation> reservationPage = reservationRepository.findAll(spec, pageable);
 
             List<ReservationResponse> responses = reservationPage.getContent().stream()
-                    .map(this::mapToResponse)
+                    .map(r -> mapToResponse(r, null))
                     .collect(Collectors.toList());
 
             StandardResponse.ResponseMetadata meta = StandardResponse.ResponseMetadata.builder()
@@ -296,7 +295,7 @@ public class ReservationServiceImpl implements ReservationService {
             List<ReservationResponse> list = reservationRepository
                     .findByGuest_IdAndIsDeletedFalse(guestId)
                     .stream()
-                    .map(this::mapToResponse)
+                    .map(r -> mapToResponse(r, null))
                     .collect(Collectors.toList());
             return StandardResponse.success(list, "Guest reservations fetched successfully");
         } catch (Exception e) {
@@ -318,7 +317,8 @@ public class ReservationServiceImpl implements ReservationService {
             }
 
             reservation.setReservationStatus(Reservation.ReservationStatus.CANCELLED);
-            reservation.getBookings().forEach(b -> {
+            List<Booking> resBookings = bookingRepository.findByReservation_IdAndIsDeletedFalse(id);
+            resBookings.forEach(b -> {
                 b.setBookingStatus(Booking.BookingStatus.CANCELLED);
 
                 RoomAudit audit = RoomAudit.builder()
@@ -354,7 +354,9 @@ public class ReservationServiceImpl implements ReservationService {
             }
 
             reservation.setIsDeleted(true);
-            reservation.getBookings().forEach(b -> b.setIsDeleted(true));
+            List<Booking> resBookings = bookingRepository.findByReservation_IdAndIsDeletedFalse(id);
+            resBookings.forEach(b -> b.setIsDeleted(true));
+            bookingRepository.saveAll(resBookings);
             reservationRepository.save(reservation);
 
             log.info("Reservation id={} deleted successfully", id);
@@ -398,8 +400,10 @@ public class ReservationServiceImpl implements ReservationService {
 
     // ── Listing mapper ────────────────────────────────────────────────────
     /** Maps to slim listing DTO — only what the listing columns show. */
-    private ReservationResponse mapToResponse(Reservation r) {
-        List<Booking> bookings = r.getBookings() != null ? r.getBookings() : List.of();
+    private ReservationResponse mapToResponse(Reservation r, List<Booking> bookings) {
+        if (bookings == null) {
+            bookings = bookingRepository.findByReservation_IdAndIsDeletedFalse(r.getId());
+        }
 
         BigDecimal grandTotal = bookings.stream().map(Booking::getFinalPrice)
                 .filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -448,8 +452,10 @@ public class ReservationServiceImpl implements ReservationService {
 
     // ── Detail mapper ─────────────────────────────────────────────────────
     /** Maps to full detail DTO — used by getReservationById only. */
-    private ReservationDetailResponse mapToDetailResponse(Reservation r) {
-        List<Booking> bookings = r.getBookings() != null ? r.getBookings() : List.of();
+    private ReservationDetailResponse mapToDetailResponse(Reservation r, List<Booking> bookings) {
+        if (bookings == null) {
+            bookings = bookingRepository.findByReservation_IdAndIsDeletedFalse(r.getId());
+        }
 
         BigDecimal totalPrice = bookings.stream().map(Booking::getTotalPrice)
                 .filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -1292,8 +1298,7 @@ public class ReservationServiceImpl implements ReservationService {
             List<Reservation> reservations = reservationRepository.findReservationsInRange(startDate, endDate);
 
             List<GanttBookingResponse> response = reservations.stream()
-                    .flatMap(res -> res.getBookings().stream()
-                            .filter(b -> !Boolean.TRUE.equals(b.getIsDeleted()))
+                    .flatMap(res -> bookingRepository.findByReservation_IdAndIsDeletedFalse(res.getId()).stream()
                             .map(b -> mapToGanttResponse(res, b)))
                     .collect(Collectors.toList());
 

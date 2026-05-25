@@ -5,8 +5,6 @@ import lombok.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.List;
 
 @Entity
 @Table(name = "reservations", indexes = {
@@ -106,11 +104,6 @@ public class Reservation {
     @Column(name = "updatedAt")
     private LocalDateTime updatedAt = LocalDateTime.now();
 
-    // ── Child collection: one reservation → many room bookings ─────────────
-
-    @OneToMany(mappedBy = "reservation", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private List<Booking> bookings = new ArrayList<>();
 
     // ── Enums ─────────────────────────────────────────────────────────────
 
