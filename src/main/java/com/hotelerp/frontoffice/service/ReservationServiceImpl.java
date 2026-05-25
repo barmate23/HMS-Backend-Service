@@ -29,13 +29,13 @@ import java.util.stream.Collectors;
 public class ReservationServiceImpl implements ReservationService {
 
     private final ReservationRepository reservationRepository;
-    private final BookingRepository     bookingRepository;
-    private final GuestRepository       guestRepository;
-    private final RoomRepository        roomRepository;
-    private final BillRepository        billRepository;
-    private final PaymentRepository     paymentRepository;
-    private final RoomAuditRepository   roomAuditRepository;
-    private final RatePlanRepository    ratePlanRepository;
+    private final BookingRepository bookingRepository;
+    private final GuestRepository guestRepository;
+    private final RoomRepository roomRepository;
+    private final BillRepository billRepository;
+    private final PaymentRepository paymentRepository;
+    private final RoomAuditRepository roomAuditRepository;
+    private final RatePlanRepository ratePlanRepository;
 
     // ── Create ─────────────────────────────────────────────────────────────
 
@@ -148,13 +148,14 @@ public class ReservationServiceImpl implements ReservationService {
             Reservation savedReservation = reservationRepository.save(reservation);
 
             // 6. Build one Booking per room
-            BigDecimal ratePlanCharge = ratePlan.getPriceAdjustment() != null ? ratePlan.getPriceAdjustment() : BigDecimal.ZERO;
+            BigDecimal ratePlanCharge = ratePlan.getPriceAdjustment() != null ? ratePlan.getPriceAdjustment()
+                    : BigDecimal.ZERO;
             List<Booking> bookings = new ArrayList<>();
 
             for (Room room : rooms) {
-                BigDecimal ratePerNight  = room.getRoomType().getBasePricePerNight();
+                BigDecimal ratePerNight = room.getRoomType().getBasePricePerNight();
                 BigDecimal effectiveRate = ratePerNight.add(ratePlanCharge);
-                BigDecimal total         = effectiveRate.multiply(BigDecimal.valueOf(nights));
+                BigDecimal total = effectiveRate.multiply(BigDecimal.valueOf(nights));
 
                 Booking booking = Booking.builder()
                         .reservation(savedReservation)
@@ -185,7 +186,8 @@ public class ReservationServiceImpl implements ReservationService {
                         .booking(sb)
                         .operationType("RESERVATION")
                         .amountPaid(BigDecimal.ZERO)
-                        .notes("Room reserved via Reservation #" + savedReservation.getId() + " by guest " + guest.getFirstName() + " " + guest.getLastName())
+                        .notes("Room reserved via Reservation #" + savedReservation.getId() + " by guest "
+                                + guest.getFirstName() + " " + guest.getLastName())
                         .createdAt(LocalDateTime.now())
                         .build();
                 roomAuditRepository.save(audit);
@@ -215,47 +217,45 @@ public class ReservationServiceImpl implements ReservationService {
                             "Reservation not found",
                             "NOT_FOUND",
                             "id",
-                            null
-                    ));
+                            null));
         } catch (Exception e) {
             log.error("Error fetching reservation id={}: ", id, e);
             return StandardResponse.error(
                     "Failed to fetch reservation",
                     "FETCH_ERROR",
                     null,
-                    e.getMessage()
-            );
+                    e.getMessage());
         }
     }
 
     @Override
     @Transactional(readOnly = true)
-    public StandardResponse<?> getAllReservations(String searchText, Reservation.ReservationStatus status, 
-                                                   LocalDate fromDate, LocalDate toDate, int page, int size) {
-        log.info("Fetching all reservations, search={}, status={}, from={}, to={}, page={}, size={}", 
+    public StandardResponse<?> getAllReservations(String searchText, Reservation.ReservationStatus status,
+            LocalDate fromDate, LocalDate toDate, int page, int size) {
+        log.info("Fetching all reservations, search={}, status={}, from={}, to={}, page={}, size={}",
                 searchText, status, fromDate, toDate, page, size);
         try {
             Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-            
+
             Specification<Reservation> spec = (root, query, cb) -> {
                 List<Predicate> predicates = new ArrayList<>();
-                
+
                 // Always check isDeleted
                 predicates.add(cb.equal(root.get("isDeleted"), false));
-                
+
                 // Status filter
                 if (status != null) {
                     predicates.add(cb.equal(root.get("reservationStatus"), status));
                 }
-                
-                // Date range filter (checking check-in date)
+
+                // Date range filter (checking date)
                 if (fromDate != null) {
-                    predicates.add(cb.greaterThanOrEqualTo(root.get("checkInDate"), fromDate));
+                    predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), fromDate));
                 }
                 if (toDate != null) {
-                    predicates.add(cb.lessThanOrEqualTo(root.get("checkInDate"), toDate));
+                    predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"), toDate));
                 }
-                
+
                 // Search filter (guest name or email)
                 if (searchText != null && !searchText.trim().isEmpty()) {
                     String pattern = "%" + searchText.trim().toLowerCase() + "%";
@@ -264,7 +264,7 @@ public class ReservationServiceImpl implements ReservationService {
                     Predicate guestEmail = cb.like(cb.lower(root.get("guest").get("email")), pattern);
                     predicates.add(cb.or(guestFirstName, guestLastName, guestEmail));
                 }
-                
+
                 return cb.and(predicates.toArray(new Predicate[0]));
             };
 
@@ -320,7 +320,7 @@ public class ReservationServiceImpl implements ReservationService {
             reservation.setReservationStatus(Reservation.ReservationStatus.CANCELLED);
             reservation.getBookings().forEach(b -> {
                 b.setBookingStatus(Booking.BookingStatus.CANCELLED);
-                
+
                 RoomAudit audit = RoomAudit.builder()
                         .room(b.getRoom())
                         .booking(b)
@@ -369,15 +369,15 @@ public class ReservationServiceImpl implements ReservationService {
 
     @Override
     @Transactional(readOnly = true)
-    public StandardResponse<?> getAvailableRooms(Long floorId, LocalDate checkIn, LocalDate checkOut) {
-        log.info("Fetching available rooms hotelId={}, {} to {}", floorId, checkIn, checkOut);
+    public StandardResponse<?> getAvailableRooms(LocalDate checkIn, LocalDate checkOut) {
+        log.info("Fetching available rooms from {} to {}", checkIn, checkOut);
         try {
             if (checkOut == null || checkIn == null || !checkOut.isAfter(checkIn)) {
                 return StandardResponse.error("Valid check-in and check-out dates are required",
                         "INVALID_DATES", "checkIn/checkOut", null);
             }
 
-            List<Room> rooms = roomRepository.findAvailableRooms(floorId, checkIn, checkOut);
+            List<Room> rooms = roomRepository.findAvailableRooms(checkIn, checkOut);
             List<RoomResponse> responses = rooms.stream()
                     .map(this::mapRoomToResponse)
                     .collect(Collectors.toList());
@@ -408,8 +408,10 @@ public class ReservationServiceImpl implements ReservationService {
         if (r.getId() != null) {
             try {
                 paidAmount = billRepository.sumPaidAmountByReservation(r.getId());
-                if (paidAmount == null) paidAmount = BigDecimal.ZERO;
-            } catch (Exception ignored) {}
+                if (paidAmount == null)
+                    paidAmount = BigDecimal.ZERO;
+            } catch (Exception ignored) {
+            }
         }
 
         Guest g = r.getGuest();
@@ -418,7 +420,8 @@ public class ReservationServiceImpl implements ReservationService {
                 .map(b -> ReservationResponse.RoomSummary.builder()
                         .roomNumber(b.getRoom().getRoomNumber())
                         .roomTypeName(b.getRoom().getRoomType() != null
-                                ? b.getRoom().getRoomType().getName() : null)
+                                ? b.getRoom().getRoomType().getName()
+                                : null)
                         .ratePlanName(r.getRatePlan() != null ? r.getRatePlan().getName() : null)
                         .build())
                 .collect(Collectors.toList());
@@ -448,23 +451,25 @@ public class ReservationServiceImpl implements ReservationService {
     private ReservationDetailResponse mapToDetailResponse(Reservation r) {
         List<Booking> bookings = r.getBookings() != null ? r.getBookings() : List.of();
 
-        BigDecimal totalPrice    = bookings.stream().map(Booking::getTotalPrice)
+        BigDecimal totalPrice = bookings.stream().map(Booking::getTotalPrice)
                 .filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal totalDiscount = bookings.stream().map(Booking::getDiscountAmount)
                 .filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal grandTotal    = bookings.stream().map(Booking::getFinalPrice)
+        BigDecimal grandTotal = bookings.stream().map(Booking::getFinalPrice)
                 .filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal paidAmount = BigDecimal.ZERO;
         if (r.getId() != null) {
             try {
                 paidAmount = billRepository.sumPaidAmountByReservation(r.getId());
-                if (paidAmount == null) paidAmount = BigDecimal.ZERO;
-            } catch (Exception ignored) {}
+                if (paidAmount == null)
+                    paidAmount = BigDecimal.ZERO;
+            } catch (Exception ignored) {
+            }
         }
 
         Guest g = r.getGuest();
-       Hotel hotel = bookings.get(0).getRoom().getFloor().getHotel();
+        Hotel hotel = bookings.get(0).getRoom().getFloor().getHotel();
         return ReservationDetailResponse.builder()
                 .id(r.getId())
                 .guestId(g.getId())
@@ -504,14 +509,17 @@ public class ReservationServiceImpl implements ReservationService {
     /** Extract up to 2 uppercase initials from first + last name. */
     private String extractInitials(String firstName, String lastName) {
         StringBuilder sb = new StringBuilder();
-        if (firstName != null && !firstName.isBlank()) sb.append(firstName.charAt(0));
-        if (lastName  != null && !lastName.isBlank())  sb.append(lastName.charAt(0));
+        if (firstName != null && !firstName.isBlank())
+            sb.append(firstName.charAt(0));
+        if (lastName != null && !lastName.isBlank())
+            sb.append(lastName.charAt(0));
         return sb.toString().toUpperCase();
     }
 
     /** Resolve guest badge: VIP → REPEAT (>1 reservation) → NEW */
     private String resolveGuestBadge(Guest g) {
-        if (Boolean.TRUE.equals(g.getIsVip())) return "VIP";
+        if (Boolean.TRUE.equals(g.getIsVip()))
+            return "VIP";
         long count = reservationRepository.findByGuest_IdAndIsDeletedFalse(g.getId()).size();
         return count > 1 ? "REPEAT" : "NEW";
     }
@@ -587,22 +595,24 @@ public class ReservationServiceImpl implements ReservationService {
     @Override
     @Transactional(readOnly = true)
     public StandardResponse<?> getArrivals(LocalDate date, String searchText, boolean checkout, int page, int size) {
-        log.info("Fetching listing date={}, search={}, checkout={}, page={}, size={}", date, searchText, checkout, page, size);
+        log.info("Fetching listing date={}, search={}, checkout={}, page={}, size={}", date, searchText, checkout, page,
+                size);
         try {
             LocalDate targetDate = date != null ? date : LocalDate.now();
-            Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "id")); // Or sort by time if available
-            
+            Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "id")); // Or sort by time if
+                                                                                               // available
+
             Specification<Booking> spec = (root, query, cb) -> {
                 List<Predicate> predicates = new ArrayList<>();
                 predicates.add(cb.equal(root.get("isDeleted"), false));
-                
+
                 // Date filter based on checkout flag
                 if (checkout) {
                     predicates.add(cb.equal(root.get("checkOutDate"), targetDate));
                 } else {
                     predicates.add(cb.equal(root.get("checkInDate"), targetDate));
                 }
-                
+
                 // Search filter (bookingId or guest name)
                 if (searchText != null && !searchText.trim().isEmpty()) {
                     String pattern = "%" + searchText.trim().toLowerCase() + "%";
@@ -611,55 +621,55 @@ public class ReservationServiceImpl implements ReservationService {
                     try {
                         Long id = Long.parseLong(searchText.trim().replaceAll("[^0-9]", ""));
                         searchPred = cb.or(
-                            cb.equal(root.get("id"), id),
-                            cb.like(cb.lower(root.get("reservation").get("guest").get("firstName")), pattern),
-                            cb.like(cb.lower(root.get("reservation").get("guest").get("lastName")), pattern)
-                        );
+                                cb.equal(root.get("id"), id),
+                                cb.like(cb.lower(root.get("reservation").get("guest").get("firstName")), pattern),
+                                cb.like(cb.lower(root.get("reservation").get("guest").get("lastName")), pattern));
                     } catch (NumberFormatException e) {
                         searchPred = cb.or(
-                            cb.like(cb.lower(root.get("reservation").get("guest").get("firstName")), pattern),
-                            cb.like(cb.lower(root.get("reservation").get("guest").get("lastName")), pattern)
-                        );
+                                cb.like(cb.lower(root.get("reservation").get("guest").get("firstName")), pattern),
+                                cb.like(cb.lower(root.get("reservation").get("guest").get("lastName")), pattern));
                     }
                     predicates.add(searchPred);
                 }
-                
+
                 return cb.and(predicates.toArray(new Predicate[0]));
             };
 
             Page<Booking> bookingPage = bookingRepository.findAll(spec, pageable);
-            
-            // For stats, we need non-paged counts of processed vs pending for THIS target date
-            // Simpler to just query them specifically or use existing paged info if not needed to be precise for the whole day
+
+            // For stats, we need non-paged counts of processed vs pending for THIS target
+            // date
+            // Simpler to just query them specifically or use existing paged info if not
+            // needed to be precise for the whole day
             // But we'll do quick count queries for stats
             long pendingCount;
             long processedCount;
-            
+
             if (checkout) {
-                pendingCount = bookingRepository.count((root, query, cb) -> 
-                    cb.and(cb.equal(root.get("isDeleted"), false), 
-                           cb.equal(root.get("checkOutDate"), targetDate),
-                           cb.equal(root.get("bookingStatus"), Booking.BookingStatus.CHECKED_IN)));
-                processedCount = bookingRepository.count((root, query, cb) -> 
-                    cb.and(cb.equal(root.get("isDeleted"), false), 
-                           cb.equal(root.get("checkOutDate"), targetDate),
-                           cb.equal(root.get("bookingStatus"), Booking.BookingStatus.CHECKED_OUT)));
+                pendingCount = bookingRepository
+                        .count((root, query, cb) -> cb.and(cb.equal(root.get("isDeleted"), false),
+                                cb.equal(root.get("checkOutDate"), targetDate),
+                                cb.equal(root.get("bookingStatus"), Booking.BookingStatus.CHECKED_IN)));
+                processedCount = bookingRepository
+                        .count((root, query, cb) -> cb.and(cb.equal(root.get("isDeleted"), false),
+                                cb.equal(root.get("checkOutDate"), targetDate),
+                                cb.equal(root.get("bookingStatus"), Booking.BookingStatus.CHECKED_OUT)));
             } else {
-                pendingCount = bookingRepository.count((root, query, cb) -> 
-                    cb.and(cb.equal(root.get("isDeleted"), false), 
-                           cb.equal(root.get("checkInDate"), targetDate),
-                           cb.or(cb.equal(root.get("bookingStatus"), Booking.BookingStatus.PENDING),
-                                 cb.equal(root.get("bookingStatus"), Booking.BookingStatus.CONFIRMED))));
-                processedCount = bookingRepository.count((root, query, cb) -> 
-                    cb.and(cb.equal(root.get("isDeleted"), false), 
-                           cb.equal(root.get("checkInDate"), targetDate),
-                           cb.equal(root.get("bookingStatus"), Booking.BookingStatus.CHECKED_IN)));
+                pendingCount = bookingRepository
+                        .count((root, query, cb) -> cb.and(cb.equal(root.get("isDeleted"), false),
+                                cb.equal(root.get("checkInDate"), targetDate),
+                                cb.or(cb.equal(root.get("bookingStatus"), Booking.BookingStatus.PENDING),
+                                        cb.equal(root.get("bookingStatus"), Booking.BookingStatus.CONFIRMED))));
+                processedCount = bookingRepository
+                        .count((root, query, cb) -> cb.and(cb.equal(root.get("isDeleted"), false),
+                                cb.equal(root.get("checkInDate"), targetDate),
+                                cb.equal(root.get("bookingStatus"), Booking.BookingStatus.CHECKED_IN)));
             }
 
             List<ArrivalBookingResponse> arrivals = bookingPage.getContent().stream()
                     .map(b -> {
                         Guest g = b.getReservation().getGuest();
-                        
+
                         // Calculate Balance (simplified logic as before)
                         BigDecimal totalCharges;
                         BigDecimal paidAmount = BigDecimal.ZERO;
@@ -680,14 +690,20 @@ public class ReservationServiceImpl implements ReservationService {
 
                         String statusStr;
                         if (checkout) {
-                            if (b.getBookingStatus() == Booking.BookingStatus.CHECKED_IN) statusStr = "Pending";
-                            else if (b.getBookingStatus() == Booking.BookingStatus.CHECKED_OUT) statusStr = "Checked Out";
-                            else statusStr = b.getBookingStatus().name();
+                            if (b.getBookingStatus() == Booking.BookingStatus.CHECKED_IN)
+                                statusStr = "Pending";
+                            else if (b.getBookingStatus() == Booking.BookingStatus.CHECKED_OUT)
+                                statusStr = "Checked Out";
+                            else
+                                statusStr = b.getBookingStatus().name();
                         } else {
-                            if (b.getBookingStatus() == Booking.BookingStatus.PENDING 
-                                    || b.getBookingStatus() == Booking.BookingStatus.CONFIRMED) statusStr = "Pending";
-                            else if (b.getBookingStatus() == Booking.BookingStatus.CHECKED_IN) statusStr = "Checked In";
-                            else statusStr = b.getBookingStatus().name();
+                            if (b.getBookingStatus() == Booking.BookingStatus.PENDING
+                                    || b.getBookingStatus() == Booking.BookingStatus.CONFIRMED)
+                                statusStr = "Pending";
+                            else if (b.getBookingStatus() == Booking.BookingStatus.CHECKED_IN)
+                                statusStr = "Checked In";
+                            else
+                                statusStr = b.getBookingStatus().name();
                         }
 
                         return ArrivalBookingResponse.builder()
@@ -696,8 +712,10 @@ public class ReservationServiceImpl implements ReservationService {
                                 .guestName(g.getFirstName() + " " + g.getLastName())
                                 .guestIsVip(g.getIsVip())
                                 .numberOfNights(b.getNumberOfNights())
-                                .roomTypeName(b.getRoom().getRoomType() != null ? b.getRoom().getRoomType().getName() : "")
-                                .eta(checkout ? b.getReservation().getCheckOutTime() : b.getReservation().getCheckInTime())
+                                .roomTypeName(
+                                        b.getRoom().getRoomType() != null ? b.getRoom().getRoomType().getName() : "")
+                                .eta(checkout ? b.getReservation().getCheckOutTime()
+                                        : b.getReservation().getCheckInTime())
                                 .balance(balance)
                                 .bookingStatus(statusStr)
                                 .checkInDate(b.getCheckInDate())
@@ -720,7 +738,8 @@ public class ReservationServiceImpl implements ReservationService {
                     .pageSize(size)
                     .build();
 
-            return StandardResponse.success(response, checkout ? "Departures fetched successfully" : "Arrivals fetched successfully", meta);
+            return StandardResponse.success(response,
+                    checkout ? "Departures fetched successfully" : "Arrivals fetched successfully", meta);
         } catch (Exception e) {
             log.error("Error fetching arrivals/departures: ", e);
             return StandardResponse.error("Failed to fetch list", "FETCH_LIST_ERROR", null, e.getMessage());
@@ -749,7 +768,7 @@ public class ReservationServiceImpl implements ReservationService {
             BigDecimal roomCharges = b.getFinalPrice();
             BigDecimal taxAmount = roomCharges.multiply(new BigDecimal("0.18"));
             BigDecimal totalEstBill = roomCharges.add(taxAmount);
-            
+
             BigDecimal paidAmount = BigDecimal.ZERO;
             Optional<Bill> optBill = billRepository.findByBooking_Id(bookingId);
             if (optBill.isPresent()) {
@@ -761,9 +780,10 @@ public class ReservationServiceImpl implements ReservationService {
             BigDecimal balanceDue = totalEstBill.subtract(paidAmount);
 
             // Available rooms of the same type
-            List<Room> vacantRooms = roomRepository.findAvailableRooms(b.getRoom().getFloor().getHotel().getId(), b.getCheckInDate(), b.getCheckOutDate());
+            List<Room> vacantRooms = roomRepository.findAvailableRooms(
+                    b.getCheckInDate(), b.getCheckOutDate());
             List<AvailableRoomSummary> availableRooms = vacantRooms.stream()
-                    .filter(r -> r.getRoomType() != null && b.getRoom().getRoomType() != null 
+                    .filter(r -> r.getRoomType() != null && b.getRoom().getRoomType() != null
                             && r.getRoomType().getId().equals(b.getRoom().getRoomType().getId()))
                     .map(r -> AvailableRoomSummary.builder()
                             .roomId(r.getId())
@@ -805,7 +825,8 @@ public class ReservationServiceImpl implements ReservationService {
             return StandardResponse.success(response, "Check-in details fetched successfully");
         } catch (Exception e) {
             log.error("Error fetching check-in details: ", e);
-            return StandardResponse.error("Failed to fetch check-in details", "FETCH_CHECKIN_DETAILS_ERROR", null, e.getMessage());
+            return StandardResponse.error("Failed to fetch check-in details", "FETCH_CHECKIN_DETAILS_ERROR", null,
+                    e.getMessage());
         }
     }
 
@@ -822,7 +843,8 @@ public class ReservationServiceImpl implements ReservationService {
             }
 
             Booking b = bookingRepository.findById(request.getBookingId())
-                    .orElseThrow(() -> new IllegalArgumentException("Booking not found with ID: " + request.getBookingId()));
+                    .orElseThrow(
+                            () -> new IllegalArgumentException("Booking not found with ID: " + request.getBookingId()));
 
             Room room = roomRepository.findById(request.getRoomId())
                     .orElseThrow(() -> new IllegalArgumentException("Room not found with ID: " + request.getRoomId()));
@@ -842,7 +864,7 @@ public class ReservationServiceImpl implements ReservationService {
             Reservation res = b.getReservation();
             List<Booking> bookings = bookingRepository.findByReservation_IdAndIsDeletedFalse(res.getId());
             boolean allCheckedIn = bookings.stream()
-                    .allMatch(bk -> bk.getBookingStatus() == Booking.BookingStatus.CHECKED_IN 
+                    .allMatch(bk -> bk.getBookingStatus() == Booking.BookingStatus.CHECKED_IN
                             || bk.getBookingStatus() == Booking.BookingStatus.CHECKED_OUT);
             if (allCheckedIn) {
                 res.setReservationStatus(Reservation.ReservationStatus.CHECKED_IN);
@@ -880,7 +902,7 @@ public class ReservationServiceImpl implements ReservationService {
                         .amount(request.getAmountToSettle())
                         .paymentMode(mapPaymentMode(request.getPaymentMethod()))
                         .paymentDate(LocalDate.now())
-                        .transactionId("TXN-" + System.currentTimeMillis() + "-" + (int)(Math.random() * 1000))
+                        .transactionId("TXN-" + System.currentTimeMillis() + "-" + (int) (Math.random() * 1000))
                         .paymentStatus(Payment.PaymentStatus.SUCCESS)
                         .createdAt(LocalDateTime.now())
                         .build();
@@ -910,7 +932,8 @@ public class ReservationServiceImpl implements ReservationService {
                     .booking(b)
                     .operationType("CHECK_IN")
                     .amountPaid(amtPaid)
-                    .notes("Guest checked in to Room " + room.getRoomNumber() + ". Payment Mode: " + request.getPaymentMethod())
+                    .notes("Guest checked in to Room " + room.getRoomNumber() + ". Payment Mode: "
+                            + request.getPaymentMethod())
                     .createdAt(LocalDateTime.now())
                     .build();
             roomAuditRepository.save(audit);
@@ -923,7 +946,8 @@ public class ReservationServiceImpl implements ReservationService {
     }
 
     private Payment.PaymentMode mapPaymentMode(String mode) {
-        if (mode == null) return Payment.PaymentMode.CASH;
+        if (mode == null)
+            return Payment.PaymentMode.CASH;
         String normalized = mode.trim().toUpperCase().replace(" ", "_");
         try {
             return Payment.PaymentMode.valueOf(normalized);
@@ -986,7 +1010,7 @@ public class ReservationServiceImpl implements ReservationService {
                 for (Payment p : payments) {
                     if (p.getPaymentStatus() == Payment.PaymentStatus.SUCCESS) {
                         totalPayments = totalPayments.add(p.getAmount());
-                        
+
                         // Format description to match screenshots
                         String desc = "Payment Received";
                         if (p.getPaymentDate() != null && p.getPaymentDate().isBefore(b.getCheckInDate())) {
@@ -1057,10 +1081,12 @@ public class ReservationServiceImpl implements ReservationService {
             }
 
             Booking b = bookingRepository.findById(request.getBookingId())
-                    .orElseThrow(() -> new IllegalArgumentException("Booking not found with ID: " + request.getBookingId()));
+                    .orElseThrow(
+                            () -> new IllegalArgumentException("Booking not found with ID: " + request.getBookingId()));
 
             if (b.getBookingStatus() != Booking.BookingStatus.CHECKED_IN) {
-                return StandardResponse.error("Booking is not in CHECKED_IN status", "INVALID_STATUS", "bookingStatus", null);
+                return StandardResponse.error("Booking is not in CHECKED_IN status", "INVALID_STATUS", "bookingStatus",
+                        null);
             }
 
             Room room = b.getRoom();
@@ -1068,13 +1094,14 @@ public class ReservationServiceImpl implements ReservationService {
             // Update booking status
             b.setBookingStatus(Booking.BookingStatus.CHECKED_OUT);
             b.setUpdatedAt(LocalDateTime.now());
-            
+
             // Append checkout details/feedback/transportation to notes for audit
             StringBuilder notesBuilder = new StringBuilder();
             if (b.getReservation().getNotes() != null) {
                 notesBuilder.append(b.getReservation().getNotes()).append("\n");
             }
-            notesBuilder.append("[Checkout Audit] Keys Returned: ").append(request.getKeysReturned() != null ? request.getKeysReturned() : "N/A");
+            notesBuilder.append("[Checkout Audit] Keys Returned: ")
+                    .append(request.getKeysReturned() != null ? request.getKeysReturned() : "N/A");
             if (request.getTransportationRequested() != null && !request.getTransportationRequested().isEmpty()) {
                 notesBuilder.append(", Transportation: ").append(request.getTransportationRequested());
             }
@@ -1096,7 +1123,8 @@ public class ReservationServiceImpl implements ReservationService {
                 roomRepository.save(room);
             }
 
-            // Update reservation status to CHECKED_OUT if all bookings under this reservation are CHECKED_OUT
+            // Update reservation status to CHECKED_OUT if all bookings under this
+            // reservation are CHECKED_OUT
             Reservation res = b.getReservation();
             List<Booking> bookings = bookingRepository.findByReservation_IdAndIsDeletedFalse(res.getId());
             boolean allCheckedOut = bookings.stream()
@@ -1133,11 +1161,13 @@ public class ReservationServiceImpl implements ReservationService {
             // Update additional charges in the bill (late fee, minibar, damage penalty)
             BigDecimal lateFee = request.getLateCheckOutFee() != null ? request.getLateCheckOutFee() : BigDecimal.ZERO;
             BigDecimal minibar = request.getMinibarCharges() != null ? request.getMinibarCharges() : BigDecimal.ZERO;
-            BigDecimal damage = request.getDamagePenaltyCharge() != null ? request.getDamagePenaltyCharge() : BigDecimal.ZERO;
+            BigDecimal damage = request.getDamagePenaltyCharge() != null ? request.getDamagePenaltyCharge()
+                    : BigDecimal.ZERO;
             BigDecimal newAdditional = lateFee.add(minibar).add(damage);
 
             if (newAdditional.compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal currentAdditional = bill.getAdditionalCharges() != null ? bill.getAdditionalCharges() : BigDecimal.ZERO;
+                BigDecimal currentAdditional = bill.getAdditionalCharges() != null ? bill.getAdditionalCharges()
+                        : BigDecimal.ZERO;
                 bill.setAdditionalCharges(currentAdditional.add(newAdditional));
                 bill.setTotalAmount(bill.getRoomCharges().add(bill.getTaxAmount()).add(bill.getAdditionalCharges()));
             }
@@ -1149,7 +1179,7 @@ public class ReservationServiceImpl implements ReservationService {
                         .amount(request.getAmountToCollect())
                         .paymentMode(mapPaymentMode(request.getPaymentMethod()))
                         .paymentDate(LocalDate.now())
-                        .transactionId("TXN-" + System.currentTimeMillis() + "-" + (int)(Math.random() * 1000))
+                        .transactionId("TXN-" + System.currentTimeMillis() + "-" + (int) (Math.random() * 1000))
                         .paymentStatus(Payment.PaymentStatus.SUCCESS)
                         .createdAt(LocalDateTime.now())
                         .build();
@@ -1173,14 +1203,16 @@ public class ReservationServiceImpl implements ReservationService {
             billRepository.save(bill);
 
             // Write Room Audit Log for Check-Out
-            BigDecimal checkoutPaid = request.getAmountToCollect() != null ? request.getAmountToCollect() : BigDecimal.ZERO;
+            BigDecimal checkoutPaid = request.getAmountToCollect() != null ? request.getAmountToCollect()
+                    : BigDecimal.ZERO;
             if (room != null) {
                 RoomAudit audit = RoomAudit.builder()
                         .room(room)
                         .booking(b)
                         .operationType("CHECK_OUT")
                         .amountPaid(checkoutPaid)
-                        .notes("Guest checked out from Room " + room.getRoomNumber() + ". Keys Returned: " + request.getKeysReturned())
+                        .notes("Guest checked out from Room " + room.getRoomNumber() + ". Keys Returned: "
+                                + request.getKeysReturned())
                         .createdAt(LocalDateTime.now())
                         .build();
                 roomAuditRepository.save(audit);
@@ -1194,7 +1226,8 @@ public class ReservationServiceImpl implements ReservationService {
     }
 
     private String formatPaymentMode(Payment.PaymentMode mode) {
-        if (mode == null) return "Cash";
+        if (mode == null)
+            return "Cash";
         String name = mode.name().toLowerCase().replace("_", " ");
         StringBuilder sb = new StringBuilder();
         for (String s : name.split(" ")) {
@@ -1231,7 +1264,70 @@ public class ReservationServiceImpl implements ReservationService {
             return StandardResponse.success(response, "Room audits fetched successfully");
         } catch (Exception e) {
             log.error("Error fetching room audits for roomId={}: ", roomId, e);
-            return StandardResponse.error("Failed to fetch room audits", "ROOM_AUDIT_FETCH_ERROR", null, e.getMessage());
+            return StandardResponse.error("Failed to fetch room audits", "ROOM_AUDIT_FETCH_ERROR", null,
+                    e.getMessage());
         }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public StandardResponse<?> getGanttChartData(LocalDate startDate, LocalDate endDate) {
+        log.info("Fetching Gantt chart data from {} to {}", startDate, endDate);
+        try {
+            if (startDate == null)
+                startDate = LocalDate.now().minusDays(7);
+            if (endDate == null)
+                endDate = LocalDate.now().plusDays(23);
+
+            List<Reservation> reservations = reservationRepository.findReservationsInRange(startDate, endDate);
+
+            List<GanttBookingResponse> response = reservations.stream()
+                    .flatMap(res -> res.getBookings().stream()
+                            .filter(b -> !Boolean.TRUE.equals(b.getIsDeleted()))
+                            .map(b -> mapToGanttResponse(res, b)))
+                    .collect(Collectors.toList());
+
+            return StandardResponse.success(response, "Gantt chart data fetched successfully");
+        } catch (Exception e) {
+            log.error("Error fetching Gantt chart data: ", e);
+            return StandardResponse.error("Failed to fetch Gantt chart data", "FETCH_ERROR", null, e.getMessage());
+        }
+    }
+
+    private GanttBookingResponse mapToGanttResponse(Reservation r, Booking b) {
+        String guestName = "Unknown";
+        if (r != null && r.getGuest() != null) {
+            guestName = r.getGuest().getFirstName() + " " + r.getGuest().getLastName();
+        }
+
+        Room room = b.getRoom();
+
+        return GanttBookingResponse.builder()
+                .bookingId(b.getId())
+                .reservationId(r != null ? r.getId() : null)
+                .reservationRef(r != null ? "RES-" + r.getId() : null)
+                .roomId(room != null ? room.getId() : null)
+                .roomNumber(room != null ? room.getRoomNumber() : null)
+                .roomTypeName(room != null && room.getRoomType() != null ? room.getRoomType().getName() : null)
+                .guestName(guestName)
+                .checkInDate(r != null ? r.getCheckInDate() : null)
+                .checkOutDate(r != null ? r.getCheckOutDate() : null)
+                .status(r != null && r.getReservationStatus() != null ? r.getReservationStatus().name() : null)
+                .color(resolveBookingColor(r != null ? r.getReservationStatus() : null))
+                .build();
+    }
+
+    private String resolveBookingColor(Reservation.ReservationStatus status) {
+        if (status == null)
+            return "#607d8b";
+        return switch (status) {
+            case CONFIRMED -> "#4caf50";
+            case CHECKED_IN -> "#2196f3";
+            case CHECKED_OUT -> "#917FB3";
+            case PENDING -> "#ff9800";
+            case NO_SHOW -> "#f44336";
+            case CANCELLED -> "#757575";
+            default -> "#607d8b";
+        };
     }
 }

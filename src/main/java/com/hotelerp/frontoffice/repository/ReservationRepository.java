@@ -18,5 +18,17 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long>,
 
     Optional<Reservation> findByIdAndIsDeletedFalse(Long id);
 
-
+    /**
+     * Fetch all active reservations overlapping a specific date range.
+     * Used for Gantt chart view.
+     */
+    @Query("SELECT r FROM Reservation r " +
+           "WHERE r.isDeleted = false " +
+           "AND r.reservationStatus NOT IN (com.hotelerp.frontoffice.entity.Reservation.ReservationStatus.CANCELLED, " +
+           "                               com.hotelerp.frontoffice.entity.Reservation.ReservationStatus.NO_SHOW) " +
+           "AND r.checkInDate < :endDate " +
+           "AND r.checkOutDate > :startDate")
+    List<Reservation> findReservationsInRange(
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate")   LocalDate endDate);
 }

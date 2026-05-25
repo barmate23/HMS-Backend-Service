@@ -33,7 +33,7 @@ public interface ReservationService {
     StandardResponse<?> deleteReservation(Long id);
 
     /** Return available rooms for a hotel on the given date range */
-    StandardResponse<?> getAvailableRooms(Long floorId, LocalDate checkIn, LocalDate checkOut);
+    StandardResponse<?> getAvailableRooms(LocalDate checkIn, LocalDate checkOut);
 
     /** 1> Get arrivals or departures list (with stats) based on date, search and paging */
     StandardResponse<?> getArrivals(LocalDate date, String searchText, boolean checkout, int page, int size);
@@ -52,5 +52,8 @@ public interface ReservationService {
 
     /** Get Room operation audit logs */
     StandardResponse<?> getRoomAudits(Long roomId);
+    
+    /** Get all bookings in a date range for Gantt chart view */
+    StandardResponse<?> getGanttChartData(LocalDate startDate, LocalDate endDate);
 }
 

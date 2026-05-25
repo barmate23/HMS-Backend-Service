@@ -14,22 +14,23 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 
 
     /**
-     * Fetch all rooms for a hotel that have NO active (non-cancelled) booking
+     * Fetch all rooms that have NO active (non-cancelled) booking
      * overlapping the requested date range — i.e., truly available rooms.
      */
     @Query("SELECT r FROM Room r " +
-           "WHERE r.floor.id = :floorId " +
-           "AND r.isActive = true " +
+           "WHERE r.isActive = true " +
            "AND r.status = com.hotelerp.frontoffice.entity.Room.RoomStatus.VACANT " +
            "AND r.id NOT IN (" +
            "  SELECT b.room.id FROM Booking b " +
+           "  JOIN b.reservation res " +
            "  WHERE b.isDeleted = false " +
-           "  AND b.bookingStatus NOT IN (com.hotelerp.frontoffice.entity.Booking.BookingStatus.CANCELLED) " +
-           "  AND b.checkInDate < :checkOut " +
-           "  AND b.checkOutDate > :checkIn" +
+           "  AND res.isDeleted = false " +
+           "  AND res.reservationStatus NOT IN (com.hotelerp.frontoffice.entity.Reservation.ReservationStatus.CANCELLED, " +
+           "                                   com.hotelerp.frontoffice.entity.Reservation.ReservationStatus.NO_SHOW) " +
+           "  AND res.checkInDate < :checkOut " +
+           "  AND res.checkOutDate > :checkIn" +
            ")")
     List<Room> findAvailableRooms(
-            @Param("floorId")  Long floorId,
             @Param("checkIn")  LocalDate checkIn,
             @Param("checkOut") LocalDate checkOut);
 }

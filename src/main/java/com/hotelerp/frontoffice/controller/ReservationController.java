@@ -73,13 +73,19 @@ public class ReservationController {
         return ResponseEntity.ok(reservationService.deleteReservation(id));
     }
 
+    @GetMapping(ServiceConstants.RESERVATION_BASE_URL + ServiceConstants.GET_GANTT_CHART)
+    public ResponseEntity<StandardResponse<?>> getGanttChartData(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        return ResponseEntity.ok(reservationService.getGanttChartData(startDate, endDate));
+    }
+
     // ── Room Availability Endpoint ─────────────────────────────────────────
 
     @GetMapping(ServiceConstants.ROOM_BASE_URL + ServiceConstants.GET_AVAILABLE_ROOMS)
     public ResponseEntity<StandardResponse<?>> getAvailableRooms(
-            @RequestParam Long floorId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkIn,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOut) {
-        return ResponseEntity.ok(reservationService.getAvailableRooms(floorId, checkIn, checkOut));
+        return ResponseEntity.ok(reservationService.getAvailableRooms(checkIn, checkOut));
     }
 }

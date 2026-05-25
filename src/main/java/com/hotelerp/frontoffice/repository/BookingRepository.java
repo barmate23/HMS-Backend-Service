@@ -47,4 +47,17 @@ public interface BookingRepository extends JpaRepository<Booking, Long>, JpaSpec
             @Param("excludeId") Long excludeId,
             @Param("checkIn")   LocalDate checkIn,
             @Param("checkOut")  LocalDate checkOut);
+
+    /**
+     * Fetch all active bookings overlapping a specific date range.
+     * Used for Gantt chart view.
+     */
+    @Query("SELECT b FROM Booking b " +
+           "WHERE b.isDeleted = false " +
+           "AND b.bookingStatus NOT IN (com.hotelerp.frontoffice.entity.Booking.BookingStatus.CANCELLED) " +
+           "AND b.checkInDate < :endDate " +
+           "AND b.checkOutDate > :startDate")
+    List<Booking> findBookingsInRange(
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate")   LocalDate endDate);
 }

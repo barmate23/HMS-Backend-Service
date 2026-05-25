@@ -23,6 +23,7 @@ public class ServiceConstants {
     public static final String COMPLETE_CHECKIN = "/checkin";
     public static final String GET_FOLIO = "/folio/{bookingId}";
     public static final String COMPLETE_CHECKOUT = "/checkout";
+    public static final String GET_GANTT_CHART = "/getGanttChartData";
 
     // ── Room Availability ──────────────────────────────────────────────────
     public static final String ROOM_BASE_URL = "/api/v1/rooms";
