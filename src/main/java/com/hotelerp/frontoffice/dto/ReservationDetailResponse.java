@@ -22,16 +22,32 @@ public class ReservationDetailResponse {
     private Long id;
 
     // ── Guest ──────────────────────────────────────────────────────────────
-    private Long    guestId;
-    private String  guestInitials;
-    private String  guestFullName;
-    private String  guestEmail;
-    private String  guestPhone;
+    private Long guestId;
+    private String guestInitials;
+    private String guestFullName;
+    private String guestEmail;
+    private String guestPhone;
+    private String guestTitle;
+    private String guestFirstName;
+    private String guestLastName;
+    private String guestCountryCode;
+    private String guestAddressLine1;
+    private String guestAddressLine2;
+    private String guestCity;
+    private String guestState;
+    private String guestPostCode;
+    private String guestCountry;
+    private String guestNationality;
+    private String guestGender;
+    private LocalDate guestDateOfBirth;
+    private String guestIdProofType;
+    private String guestIdProofNumber;
+    private String guestNotes;
     private Boolean guestIsVip;
-    private String  guestBadge;         // "VIP" | "REPEAT" | "NEW"
+    private String guestBadge; // "VIP" | "REPEAT" | "NEW"
 
     // ── Hotel ──────────────────────────────────────────────────────────────
-    private Long   hotelId;
+    private Long hotelId;
     private String hotelName;
 
     // ── Stay Info ──────────────────────────────────────────────────────────
@@ -39,26 +55,33 @@ public class ReservationDetailResponse {
     private LocalTime checkInTime;
     private LocalDate checkOutDate;
     private LocalTime checkOutTime;
-    private Integer   numberOfNights;
-    private Integer   numberOfAdults;
-    private Integer   numberOfChildren;
+    private Integer numberOfNights;
+    private Integer numberOfAdults;
+    private Integer numberOfChildren;
 
     // ── Status & Plan ──────────────────────────────────────────────────────
     private Reservation.ReservationStatus reservationStatus;
-    private Long                          ratePlanId;
-    private String                        ratePlanName;
+    private Long ratePlanId;
+    private String ratePlanName;
 
     // ── Rooms & Booking Lines ──────────────────────────────────────────────
-    private Integer              numberOfRooms;
-    private List<BookingResponse> bookings;   // full per-room detail
+    private Integer numberOfRooms;
+    private List<BookingResponse> bookings; // full per-room detail
 
     // ── Billing ────────────────────────────────────────────────────────────
-    private String     billingName;
-    private String     billingAddress;
-    private BigDecimal totalPrice;      // before discount
+    private String billingName;
+    private String billingAddress;
+    private String billingMode;
+    private String gstNumber;
+    private String organisationName;
+    private String travelAgentName;
+    private String businessSource;
+    private String marketSegment;
+    private String bookingReference;
+    private BigDecimal totalPrice; // before discount
     private BigDecimal totalDiscount;
-    private BigDecimal grandTotal;      // after discount
-    private BigDecimal paidAmount;      // from successful payments
+    private BigDecimal grandTotal; // after discount
+    private BigDecimal paidAmount; // from successful payments
 
     // ── Notes ─────────────────────────────────────────────────────────────
     private String specialRequests;

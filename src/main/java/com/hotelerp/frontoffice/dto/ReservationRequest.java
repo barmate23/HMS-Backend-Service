@@ -82,6 +82,15 @@ public class ReservationRequest {
 
     private String billingName;
     private String billingAddress;
+    private String billingMode;
+    private String gstNumber;
+    private String organisationName;
+    private String travelAgentName;
+    private String businessSource;
+    private String marketSegment;
+    private String bookingReference;
+    private java.math.BigDecimal taxAmount;
+    private java.math.BigDecimal taxPercentage;
 
     // ── Notes ─────────────────────────────────────────────────────────────
 

@@ -140,6 +140,13 @@ public class ReservationServiceImpl implements ReservationService {
                     .ratePlan(ratePlan)
                     .billingName(req.getBillingName())
                     .billingAddress(req.getBillingAddress())
+                    .billingMode(req.getBillingMode())
+                    .gstNumber(req.getGstNumber())
+                    .organisationName(req.getOrganisationName())
+                    .travelAgentName(req.getTravelAgentName())
+                    .businessSource(req.getBusinessSource())
+                    .marketSegment(req.getMarketSegment())
+                    .bookingReference(req.getBookingReference())
                     .specialRequests(req.getSpecialRequests())
                     .notes(req.getNotes())
                     .isDeleted(false)
@@ -193,7 +200,8 @@ public class ReservationServiceImpl implements ReservationService {
             }
 
             log.info("Reservation created id={}, bookings={}", savedReservation.getId(), savedBookings.size());
-            return StandardResponse.success(mapToResponse(savedReservation, savedBookings), "Reservation created successfully");
+            return StandardResponse.success(mapToResponse(savedReservation, savedBookings),
+                    "Reservation created successfully");
 
         } catch (Exception e) {
             log.error("Error creating reservation: ", e);
@@ -267,6 +275,15 @@ public class ReservationServiceImpl implements ReservationService {
             reservation.setRatePlan(ratePlan);
             reservation.setBillingName(req.getBillingName());
             reservation.setBillingAddress(req.getBillingAddress());
+            reservation.setBillingMode(req.getBillingMode());
+            reservation.setGstNumber(req.getGstNumber());
+            reservation.setOrganisationName(req.getOrganisationName());
+            reservation.setTravelAgentName(req.getTravelAgentName());
+            reservation.setBusinessSource(req.getBusinessSource());
+            reservation.setMarketSegment(req.getMarketSegment());
+            reservation.setBookingReference(req.getBookingReference());
+            reservation.setTaxAmount(req.getTaxAmount());
+            reservation.setTaxPercentage(req.getTaxPercentage());
             reservation.setSpecialRequests(req.getSpecialRequests());
             reservation.setNotes(req.getNotes());
             reservation.setUpdatedAt(LocalDateTime.now());
@@ -274,22 +291,27 @@ public class ReservationServiceImpl implements ReservationService {
             // 6. Handle Bookings (Rooms)
             List<Booking> currentBookings = bookingRepository.findByReservation_IdAndIsDeletedFalse(id);
 
-            // Check for room availability for new/changed dates, excluding current reservation's own bookings
+            // Check for room availability for new/changed dates, excluding current
+            // reservation's own bookings
             for (Long roomId : req.getRoomIds()) {
-                if (bookingRepository.isRoomBookedExcludingReservation(roomId, id, req.getCheckInDate(), req.getCheckOutDate())) {
+                if (bookingRepository.isRoomBookedExcludingReservation(roomId, id, req.getCheckInDate(),
+                        req.getCheckOutDate())) {
                     Room r = roomRepository.findById(roomId).orElse(null);
                     String rNum = r != null ? r.getRoomNumber() : roomId.toString();
-                    return StandardResponse.error("Room " + rNum + " is already booked by another reservation for these dates",
+                    return StandardResponse.error(
+                            "Room " + rNum + " is already booked by another reservation for these dates",
                             "ROOM_UNAVAILABLE", "roomIds", "roomId=" + roomId);
                 }
             }
 
-            // Simple approach: Soft-delete all existing bookings for this reservation and recreate them.
+            // Simple approach: Soft-delete all existing bookings for this reservation and
+            // recreate them.
             // This ensures all pricing, dates, and room assignments are refreshed.
             currentBookings.forEach(b -> b.setIsDeleted(true));
             bookingRepository.saveAll(currentBookings);
 
-            BigDecimal ratePlanCharge = ratePlan.getPriceAdjustment() != null ? ratePlan.getPriceAdjustment() : BigDecimal.ZERO;
+            BigDecimal ratePlanCharge = ratePlan.getPriceAdjustment() != null ? ratePlan.getPriceAdjustment()
+                    : BigDecimal.ZERO;
             List<Booking> newBookings = new ArrayList<>();
 
             for (Long roomId : req.getRoomIds()) {
@@ -336,7 +358,8 @@ public class ReservationServiceImpl implements ReservationService {
                 roomAuditRepository.save(audit);
             }
 
-            return StandardResponse.success(mapToResponse(reservation, savedBookings), "Reservation updated successfully");
+            return StandardResponse.success(mapToResponse(reservation, savedBookings),
+                    "Reservation updated successfully");
 
         } catch (Exception e) {
             log.error("Error updating reservation id={}: ", id, e);
@@ -368,18 +391,25 @@ public class ReservationServiceImpl implements ReservationService {
     }
 
     private Booking.BookingStatus mapResStatusToBookingStatus(Reservation.ReservationStatus status) {
-        if (status == null) return Booking.BookingStatus.CONFIRMED;
+        if (status == null)
+            return Booking.BookingStatus.CONFIRMED;
         switch (status) {
-            case PENDING: return Booking.BookingStatus.PENDING;
-            case CONFIRMED: return Booking.BookingStatus.CONFIRMED;
-            case CHECKED_IN: return Booking.BookingStatus.CHECKED_IN;
-            case CHECKED_OUT: return Booking.BookingStatus.CHECKED_OUT;
-            case CANCELLED: return Booking.BookingStatus.CANCELLED;
-            case NO_SHOW: return Booking.BookingStatus.NO_SHOW;
-            default: return Booking.BookingStatus.CONFIRMED;
+            case PENDING:
+                return Booking.BookingStatus.PENDING;
+            case CONFIRMED:
+                return Booking.BookingStatus.CONFIRMED;
+            case CHECKED_IN:
+                return Booking.BookingStatus.CHECKED_IN;
+            case CHECKED_OUT:
+                return Booking.BookingStatus.CHECKED_OUT;
+            case CANCELLED:
+                return Booking.BookingStatus.CANCELLED;
+            case NO_SHOW:
+                return Booking.BookingStatus.NO_SHOW;
+            default:
+                return Booking.BookingStatus.CONFIRMED;
         }
     }
-
 
     // ── Read ───────────────────────────────────────────────────────────────
 
@@ -660,8 +690,8 @@ public class ReservationServiceImpl implements ReservationService {
         String hotelName = null;
 
         if (!bookings.isEmpty() && bookings.get(0).getRoom() != null &&
-            bookings.get(0).getRoom().getFloor() != null &&
-            bookings.get(0).getRoom().getFloor().getHotel() != null) {
+                bookings.get(0).getRoom().getFloor() != null &&
+                bookings.get(0).getRoom().getFloor().getHotel() != null) {
             Hotel hotel = bookings.get(0).getRoom().getFloor().getHotel();
             hotelId = hotel.getId();
             hotelName = hotel.getName();
@@ -674,6 +704,22 @@ public class ReservationServiceImpl implements ReservationService {
                 .guestFullName(g != null ? g.getFirstName() + " " + g.getLastName() : "Unknown")
                 .guestEmail(g != null ? g.getEmail() : null)
                 .guestPhone(g != null ? g.getPhone() : null)
+                .guestTitle(g != null && g.getTitle() != null ? g.getTitle().name() : null)
+                .guestFirstName(g != null ? g.getFirstName() : null)
+                .guestLastName(g != null ? g.getLastName() : null)
+                .guestCountryCode(g != null ? g.getCountryCode() : null)
+                .guestAddressLine1(g != null ? g.getAddressLine1() : null)
+                .guestAddressLine2(g != null ? g.getAddressLine2() : null)
+                .guestCity(g != null ? g.getCity() : null)
+                .guestState(g != null ? g.getState() : null)
+                .guestPostCode(g != null ? g.getPostCode() : null)
+                .guestCountry(g != null ? g.getCountry() : null)
+                .guestNationality(g != null ? g.getNationality() : null)
+                .guestGender(g != null && g.getGender() != null ? g.getGender().name() : null)
+                .guestDateOfBirth(g != null ? g.getDateOfBirth() : null)
+                .guestIdProofType(g != null && g.getIdProofType() != null ? g.getIdProofType().name() : null)
+                .guestIdProofNumber(g != null ? g.getIdProofNumber() : null)
+                .guestNotes(g != null ? g.getGuestNotes() : null)
                 .guestIsVip(g != null ? g.getIsVip() : false)
                 .guestBadge(g != null ? resolveGuestBadge(g) : null)
                 .hotelId(hotelId)
@@ -692,6 +738,13 @@ public class ReservationServiceImpl implements ReservationService {
                 .bookings(bookings.stream().map(this::mapBookingToResponse).collect(Collectors.toList()))
                 .billingName(r.getBillingName())
                 .billingAddress(r.getBillingAddress())
+                .billingMode(r.getBillingMode())
+                .gstNumber(r.getGstNumber())
+                .organisationName(r.getOrganisationName())
+                .travelAgentName(r.getTravelAgentName())
+                .businessSource(r.getBusinessSource())
+                .marketSegment(r.getMarketSegment())
+                .bookingReference(r.getBookingReference())
                 .totalPrice(totalPrice)
                 .totalDiscount(totalDiscount)
                 .grandTotal(grandTotal)

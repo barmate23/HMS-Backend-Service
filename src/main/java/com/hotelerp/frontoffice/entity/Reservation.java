@@ -30,20 +30,19 @@ public class Reservation {
     @JoinColumn(name = "guestId", nullable = false)
     private Guest guest;
 
-
     // ── Stay Info ─────────────────────────────────────────────────────────
 
     @Column(name = "checkInDate", nullable = false)
     private LocalDate checkInDate;
 
     @Column(name = "checkInTime")
-    private LocalTime checkInTime;          // default 14:00
+    private LocalTime checkInTime; // default 14:00
 
     @Column(name = "checkOutDate", nullable = false)
     private LocalDate checkOutDate;
 
     @Column(name = "checkOutTime")
-    private LocalTime checkOutTime;         // default 11:00
+    private LocalTime checkOutTime; // default 11:00
 
     @Column(name = "numberOfNights", nullable = false)
     private Integer numberOfNights;
@@ -57,7 +56,7 @@ public class Reservation {
     /** Convenience: adults + children */
     public Integer getTotalGuests() {
         return (numberOfAdults != null ? numberOfAdults : 0)
-             + (numberOfChildren != null ? numberOfChildren : 0);
+                + (numberOfChildren != null ? numberOfChildren : 0);
     }
 
     @Column(name = "numberOfRooms", nullable = false)
@@ -82,6 +81,27 @@ public class Reservation {
     @Column(name = "billingAddress", columnDefinition = "TEXT")
     private String billingAddress;
 
+    @Column(name = "billingMode", length = 50)
+    private String billingMode;
+
+    @Column(name = "gstNumber", length = 50)
+    private String gstNumber;
+
+    @Column(name = "organisationName", length = 100)
+    private String organisationName;
+
+    @Column(name = "travelAgentName", length = 100)
+    private String travelAgentName;
+
+    @Column(name = "businessSource", length = 50)
+    private String businessSource;
+
+    @Column(name = "marketSegment", length = 50)
+    private String marketSegment;
+
+    @Column(name = "bookingReference", length = 100)
+    private String bookingReference;
+
     // ── Notes ─────────────────────────────────────────────────────────────
 
     @Column(name = "specialRequests", columnDefinition = "TEXT")
@@ -103,7 +123,6 @@ public class Reservation {
     @Builder.Default
     @Column(name = "updatedAt")
     private LocalDateTime updatedAt = LocalDateTime.now();
-
 
     // ── Enums ─────────────────────────────────────────────────────────────
 
