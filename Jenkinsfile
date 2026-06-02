@@ -2,14 +2,15 @@ pipeline {
     agent any
 
     environment {
-        COMPOSE_FILE = "docker-compose.bookingservice.yml"
-        TARGET_SERVICE = "bookingservice"
-        TARGET_CONTAINER_NAME = "bookingservice"
-        TARGET_IMAGE_NAME = "bookingservice:latest"
+        IMAGE_NAME = "bookingservice"
+        CONTAINER_NAME = "bookingservice"
+        DOCKER_NETWORK = "updated_orgadmin_rmscadminnetwork"
+        HOST_PORT = "9001"
+        CONTAINER_PORT = "9001"
+        DOCKER_BUILDKIT = "0"
     }
 
     stages {
-
         stage('Checkout') {
             steps {
                 checkout scm
@@ -19,73 +20,64 @@ pipeline {
         stage('Docker Version') {
             steps {
                 sh 'docker --version'
-                sh 'docker compose version'
             }
         }
 
-        stage('Stop Existing Container') {
+        stage('Ensure Docker Network') {
             steps {
-                script {
-
-                    def existingContainer = sh(
-                        script: "docker ps -aq -f name=${TARGET_CONTAINER_NAME}",
-                        returnStdout: true
-                    ).trim()
-
-                    if (existingContainer) {
-
-                        echo "Existing container found."
-
-                        sh """
-                            docker rm -f ${TARGET_CONTAINER_NAME} || true
-                        """
-
-                    } else {
-                        echo "No existing container found."
-                    }
-                }
+                sh """
+                    docker network inspect ${DOCKER_NETWORK} >/dev/null 2>&1 || \
+                    docker network create ${DOCKER_NETWORK}
+                """
             }
         }
 
-        stage('Remove Old Image') {
+        stage('Clean Old Container and Image') {
             steps {
-                sh "docker rmi -f ${TARGET_IMAGE_NAME} || true"
+                sh """
+                    docker rm -f ${CONTAINER_NAME} || true
+                    docker rmi -f ${IMAGE_NAME}:latest || true
+                """
             }
         }
 
-        stage('Build Image') {
+        stage('Build Docker Image') {
             steps {
-                sh "docker compose -f ${COMPOSE_FILE} build ${TARGET_SERVICE}"
+                sh """
+                    DOCKER_BUILDKIT=0 docker build --no-cache -t ${IMAGE_NAME}:latest .
+                """
             }
         }
 
-        stage('Start Container') {
+        stage('Run Container') {
             steps {
-                sh "docker compose -f ${COMPOSE_FILE} up -d ${TARGET_SERVICE}"
+                sh """
+                    docker run -d --name ${CONTAINER_NAME} \
+                        --restart unless-stopped \
+                        -p ${HOST_PORT}:${CONTAINER_PORT} \
+                        --network ${DOCKER_NETWORK} \
+                        -e EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://adminserviceregistry:8761/eureka/ \
+                        -e EUREKA_CLIENT_REGISTER_WITH_EUREKA=true \
+                        -e EUREKA_CLIENT_FETCH_REGISTRY=true \
+                        -e EUREKA_INSTANCE_LEASE_RENEWAL_INTERVAL_IN_SECONDS=10 \
+                        -e EUREKA_INSTANCE_LEASE_EXPIRATION_DURATION_IN_SECONDS=30 \
+                        -e MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=health,info,eureka,shutdown \
+                        -e SPRING_DATASOURCE_URL='jdbc:mysql://erp-mysql:3306/hms?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC' \
+                        -e SPRING_DATASOURCE_USERNAME=root \
+                        -e SPRING_DATASOURCE_PASSWORD=root \
+                        -e SPRING_JPA_HIBERNATE_DDL_AUTO=update \
+                        ${IMAGE_NAME}:latest
+                """
             }
         }
 
         stage('Health Check') {
             steps {
-                script {
-
-                    sleep(time: 20, unit: 'SECONDS')
-
-                    def healthStatus = sh(
-                        script: "docker ps -q -f name=${TARGET_CONTAINER_NAME}",
-                        returnStatus: true
-                    )
-
-                    if (healthStatus != 0) {
-
-                        sh "docker logs ${TARGET_CONTAINER_NAME} || true"
-
-                        error("Container failed to start.")
-
-                    } else {
-                        echo "✅ ${TARGET_CONTAINER_NAME} deployed successfully."
-                    }
-                }
+                sh """
+                    sleep 20
+                    docker ps -q -f name=${CONTAINER_NAME} | grep . || \
+                    (docker logs ${CONTAINER_NAME} || true && exit 1)
+                """
             }
         }
     }
@@ -94,11 +86,9 @@ pipeline {
         always {
             echo '✅ Pipeline execution completed.'
         }
-
         failure {
             echo '❌ Deployment failed.'
         }
-
         success {
             echo '🚀 Deployment successful.'
         }
