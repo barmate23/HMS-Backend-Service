@@ -89,8 +89,6 @@ public class ReservationRequest {
     private String businessSource;
     private String marketSegment;
     private String bookingReference;
-    private java.math.BigDecimal taxAmount;
-    private java.math.BigDecimal taxPercentage;
 
     // ── Notes ─────────────────────────────────────────────────────────────
 

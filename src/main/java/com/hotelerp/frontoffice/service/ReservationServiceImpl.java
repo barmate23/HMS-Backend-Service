@@ -282,8 +282,6 @@ public class ReservationServiceImpl implements ReservationService {
             reservation.setBusinessSource(req.getBusinessSource());
             reservation.setMarketSegment(req.getMarketSegment());
             reservation.setBookingReference(req.getBookingReference());
-            reservation.setTaxAmount(req.getTaxAmount());
-            reservation.setTaxPercentage(req.getTaxPercentage());
             reservation.setSpecialRequests(req.getSpecialRequests());
             reservation.setNotes(req.getNotes());
             reservation.setUpdatedAt(LocalDateTime.now());
