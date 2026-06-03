@@ -25,7 +25,7 @@ import java.time.LocalDate;
  * PUT    /cancelReservation/{id}      – Cancel reservation + bookings
  * DELETE /deleteReservation/{id}      – Soft-delete reservation
  *
- * Base URL: /api/v1/rooms
+ * Base URL: /api/frontOfficeService/v1/rooms
  * GET    /available                   – Available rooms (?hotelId=&checkIn=&checkOut=)
  */
 @RestController

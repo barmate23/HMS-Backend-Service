@@ -3,7 +3,7 @@ package com.hotelerp.frontoffice.constants;
 public class ServiceConstants {
 
     // ── Guest ──────────────────────────────────────────────────────────────
-    public static final String GUEST_BASE_URL = "/api/hotelMaster/v1/guests";
+    public static final String GUEST_BASE_URL = "/api/frontOfficeService/v1/guests";
     public static final String CREATE_GUEST = "/createGuest";
     public static final String UPDATE_GUEST = "/updateGuest/{id}";
     public static final String GET_GUEST_BY_ID = "/getGuestById/{id}";
@@ -27,7 +27,7 @@ public class ServiceConstants {
     public static final String UPDATE_RESERVATION = "/updateReservation/{id}";
 
     // ── Room Availability ──────────────────────────────────────────────────
-    public static final String ROOM_BASE_URL = "/api/v1/rooms";
+    public static final String ROOM_BASE_URL = "/api/frontOfficeService/v1/rooms";
     public static final String GET_AVAILABLE_ROOMS = "/available";
 
     // Legacy alias kept so existing GuestController compile unchanged
