@@ -3,7 +3,7 @@ package com.hotelerp.frontoffice.constants;
 public class ServiceConstants {
 
     // ── Guest ──────────────────────────────────────────────────────────────
-    public static final String GUEST_BASE_URL = "/api/v1/guests";
+    public static final String GUEST_BASE_URL = "/api/hotelMaster/v1/guests";
     public static final String CREATE_GUEST = "/createGuest";
     public static final String UPDATE_GUEST = "/updateGuest/{id}";
     public static final String GET_GUEST_BY_ID = "/getGuestById/{id}";
@@ -11,7 +11,7 @@ public class ServiceConstants {
     public static final String DELETE_GUEST = "/deleteGuest/{id}";
 
     // ── Reservation ────────────────────────────────────────────────────────
-    public static final String RESERVATION_BASE_URL = "/api/v1/frontOffice";
+    public static final String RESERVATION_BASE_URL = "/api/frontOfficeService/v1/frontOffice";
     public static final String CREATE_RESERVATION = "/createReservation";
     public static final String GET_RESERVATION_BY_ID = "/getReservationById/{id}";
     public static final String GET_ALL_RESERVATIONS = "/getAllReservations";
