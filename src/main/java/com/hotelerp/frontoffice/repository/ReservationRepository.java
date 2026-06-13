@@ -24,8 +24,7 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long>,
      */
     @Query("SELECT r FROM Reservation r " +
            "WHERE r.isDeleted = false " +
-           "AND r.reservationStatus NOT IN (com.hotelerp.frontoffice.entity.Reservation.ReservationStatus.CANCELLED, " +
-           "                               com.hotelerp.frontoffice.entity.Reservation.ReservationStatus.NO_SHOW) " +
+           "AND (r.reservationStatus IS NULL OR r.reservationStatus.code NOT IN ('CANCELLED', 'NO_SHOW')) " +
            "AND r.checkInDate < :endDate " +
            "AND r.checkOutDate > :startDate")
     List<Reservation> findReservationsInRange(

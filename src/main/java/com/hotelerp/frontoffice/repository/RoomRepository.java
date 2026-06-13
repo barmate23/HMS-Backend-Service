@@ -19,14 +19,13 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
      */
     @Query("SELECT r FROM Room r " +
            "WHERE r.isActive = true " +
-           "AND r.status = com.hotelerp.frontoffice.entity.Room.RoomStatus.VACANT " +
+           "AND (r.status IS NULL OR r.status.code = 'VACANT') " +
            "AND r.id NOT IN (" +
            "  SELECT b.room.id FROM Booking b " +
            "  JOIN b.reservation res " +
            "  WHERE b.isDeleted = false " +
            "  AND res.isDeleted = false " +
-           "  AND res.reservationStatus NOT IN (com.hotelerp.frontoffice.entity.Reservation.ReservationStatus.CANCELLED, " +
-           "                                   com.hotelerp.frontoffice.entity.Reservation.ReservationStatus.NO_SHOW) " +
+           "  AND (res.reservationStatus IS NULL OR res.reservationStatus.code NOT IN ('CANCELLED', 'NO_SHOW')) " +
            "  AND res.checkInDate < :checkOut " +
            "  AND res.checkOutDate > :checkIn" +
            ")")
