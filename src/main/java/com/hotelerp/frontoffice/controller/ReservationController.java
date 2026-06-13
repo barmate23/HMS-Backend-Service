@@ -94,4 +94,10 @@ public class ReservationController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOut) {
         return ResponseEntity.ok(reservationService.getAvailableRooms(checkIn, checkOut));
     }
+
+    @GetMapping(ServiceConstants.ROOM_BASE_URL + ServiceConstants.GET_ROOM_STATUS_BY_DATE)
+    public ResponseEntity<StandardResponse<?>> getRoomStatusByDate(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return ResponseEntity.ok(reservationService.getRoomStatusByDate(date));
+    }
 }

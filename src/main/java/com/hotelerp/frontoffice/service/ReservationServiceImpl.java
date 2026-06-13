@@ -273,7 +273,8 @@ public class ReservationServiceImpl implements ReservationService {
             reservation.setNumberOfAdults(req.getNumberOfAdults());
             reservation.setNumberOfChildren(req.getNumberOfChildren() != null ? req.getNumberOfChildren() : 0);
             if (req.getReservationStatusId() != null) {
-                reservation.setReservationStatus(commonMasterRepository.findById(req.getReservationStatusId()).orElse(null));
+                reservation.setReservationStatus(
+                        commonMasterRepository.findById(req.getReservationStatusId()).orElse(null));
             }
             reservation.setRatePlan(ratePlan);
             reservation.setBillingName(req.getBillingName());
@@ -391,7 +392,10 @@ public class ReservationServiceImpl implements ReservationService {
         guest.setUpdatedAt(LocalDateTime.now());
     }
 
-    /* mapResStatusToBookingStatus removed as reservation and booking status now use same CommonMaster entity */
+    /*
+     * mapResStatusToBookingStatus removed as reservation and booking status now use
+     * same CommonMaster entity
+     */
 
     private CommonMaster getStatusByCode(String category, String code) {
         return commonMasterRepository.findAll().stream()
@@ -1569,6 +1573,65 @@ public class ReservationServiceImpl implements ReservationService {
                 .status(r != null && r.getReservationStatus() != null ? r.getReservationStatus().getValue() : null)
                 .color(resolveBookingColor(r != null ? r.getReservationStatus() : null))
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public StandardResponse<?> getRoomStatusByDate(LocalDate date) {
+        log.info("Fetching room status for date={}", date);
+        try {
+            LocalDate targetDate = date != null ? date : LocalDate.now();
+            List<Room> rooms = roomRepository.findAll().stream()
+                    .filter(r -> !r.getIsDeleted())
+                    .toList();
+
+            // Fetch all bookings that overlap with this targetDate
+            // A booking overlaps if checkInDate <= targetDate AND checkOutDate > targetDate
+            List<Booking> activeBookings = bookingRepository.findAll().stream()
+                    .filter(b -> !b.getIsDeleted())
+                    .filter(b -> (b.getCheckInDate().isBefore(targetDate) || b.getCheckInDate().isEqual(targetDate))
+                            && b.getCheckOutDate().isAfter(targetDate))
+                    .toList();
+
+            Map<Long, Booking> roomBookingMap = activeBookings.stream()
+                    .filter(b -> b.getRoom() != null)
+                    .collect(Collectors.toMap(b -> b.getRoom().getId(), b -> b, (b1, b2) -> b1));
+
+            List<RoomStatusResponse> response = rooms.stream()
+                    .map(r -> {
+                        Booking b = roomBookingMap.get(r.getId());
+                        String status = "VACANT";
+                        if (b != null) {
+                            String code = b.getBookingStatus() != null ? b.getBookingStatus().getCode() : "";
+                            if ("CHECKED_IN".equals(code)) {
+                                status = "OCCUPIED";
+                            } else if ("CONFIRMED".equals(code) || "PENDING".equals(code)) {
+                                status = "RESERVED"; // Or "RESERVED" if you want to distinguish
+                            }
+                        }
+
+                        return RoomStatusResponse.builder()
+                                .id(r.getId())
+                                .roomNumber(r.getRoomNumber())
+                                .floorId(r.getFloor() != null ? r.getFloor().getId() : null)
+                                .floorNumber(r.getFloor() != null ? r.getFloor().getFloorNumber() : null)
+                                .roomTypeId(r.getRoomType() != null ? r.getRoomType().getId() : null)
+                                .roomTypeName(r.getRoomType() != null ? r.getRoomType().getName() : null)
+                                .status(status)
+                                .maxOccupancy(r.getMaxOccupancy())
+                                .telephone(r.getTelephone())
+                                .createdAt(r.getCreatedAt())
+                                .updatedAt(r.getUpdatedAt())
+                                .isActive(r.getIsActive())
+                                .build();
+                    })
+                    .collect(Collectors.toList());
+
+            return StandardResponse.success(response, "Rooms fetched successfully");
+        } catch (Exception e) {
+            log.error("Error fetching room status by date: ", e);
+            return StandardResponse.error("Failed to fetch room statuses", "FETCH_ERROR", null, e.getMessage());
+        }
     }
 
     private String resolveBookingColor(CommonMaster status) {

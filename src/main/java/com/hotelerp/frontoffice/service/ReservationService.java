@@ -35,6 +35,8 @@ public interface ReservationService {
     /** Return available rooms for a hotel on the given date range */
     StandardResponse<?> getAvailableRooms(LocalDate checkIn, LocalDate checkOut);
 
+    StandardResponse<?> getRoomStatusByDate(LocalDate date);
+
     /** 1> Get arrivals or departures list (with stats) based on date, search and paging */
     StandardResponse<?> getArrivals(LocalDate date, String searchText, boolean checkout, int page, int size);
 
