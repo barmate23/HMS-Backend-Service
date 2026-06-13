@@ -1,7 +1,5 @@
 package com.hotelerp.frontoffice.dto;
 
-import com.hotelerp.frontoffice.entity.Floor;
-import com.hotelerp.frontoffice.entity.Room;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -26,6 +24,6 @@ public class RoomResponse {
 
     // Details
     private Integer    maxOccupancy;
-    private Room.RoomStatus status;
+    private String status;
     private Boolean    isActive;
 }

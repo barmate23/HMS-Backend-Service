@@ -81,10 +81,9 @@ public class Booking {
 
     // ── Status ────────────────────────────────────────────────────────────
 
-    @Builder.Default
-    @Enumerated(EnumType.STRING)
-    @Column(name = "bookingStatus", nullable = false, length = 20)
-    private BookingStatus bookingStatus = BookingStatus.CONFIRMED;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "booking_status_id")
+    private CommonMaster bookingStatus;
 
     // ── Audit ─────────────────────────────────────────────────────────────
 
@@ -100,9 +99,4 @@ public class Booking {
     @Column(name = "updatedAt")
     private LocalDateTime updatedAt = LocalDateTime.now();
 
-    // ── Enum ──────────────────────────────────────────────────────────────
-
-    public enum BookingStatus {
-        PENDING, CONFIRMED, CHECKED_IN, CHECKED_OUT, CANCELLED, NO_SHOW
-    }
 }

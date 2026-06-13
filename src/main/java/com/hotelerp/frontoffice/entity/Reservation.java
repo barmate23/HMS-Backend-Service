@@ -62,10 +62,9 @@ public class Reservation {
     @Column(name = "numberOfRooms", nullable = false)
     private Integer numberOfRooms;
 
-    @Builder.Default
-    @Enumerated(EnumType.STRING)
-    @Column(name = "reservationStatus", nullable = false, length = 20)
-    private ReservationStatus reservationStatus = ReservationStatus.CONFIRMED;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reservation_status_id")
+    private CommonMaster reservationStatus;
 
     // ── Rate Plan ─────────────────────────────────────────────────────────
 
@@ -124,9 +123,4 @@ public class Reservation {
     @Column(name = "updatedAt")
     private LocalDateTime updatedAt = LocalDateTime.now();
 
-    // ── Enums ─────────────────────────────────────────────────────────────
-
-    public enum ReservationStatus {
-        PENDING, CONFIRMED, CHECKED_IN, CHECKED_OUT, CANCELLED, NO_SHOW
-    }
 }

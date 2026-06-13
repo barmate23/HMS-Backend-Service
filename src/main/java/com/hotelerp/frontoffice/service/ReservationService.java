@@ -7,9 +7,6 @@ import com.hotelerp.frontoffice.dto.ReservationRequest;
 
 import java.time.LocalDate;
 
-import com.hotelerp.frontoffice.entity.Reservation;
-
-import java.time.LocalDate;
 
 public interface ReservationService {
 
@@ -23,7 +20,7 @@ public interface ReservationService {
     StandardResponse<?> getReservationById(Long id);
 
     /** Listing: slim response with only fields visible on the list screen (with filters and paging) */
-    StandardResponse<?> getAllReservations(String searchText, Reservation.ReservationStatus status, 
+    StandardResponse<?> getAllReservations(String searchText, Long statusId, 
                                            LocalDate fromDate, LocalDate toDate, int page, int size);
 
     /** Listing: slim reservations for a specific guest */

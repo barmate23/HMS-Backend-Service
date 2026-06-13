@@ -3,7 +3,6 @@ package com.hotelerp.frontoffice.controller;
 import com.hotelerp.frontoffice.common.StandardResponse;
 import com.hotelerp.frontoffice.constants.ServiceConstants;
 import com.hotelerp.frontoffice.dto.*;
-import com.hotelerp.frontoffice.entity.Reservation;
 import com.hotelerp.frontoffice.service.ReservationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -57,12 +56,12 @@ public class ReservationController {
     @GetMapping(ServiceConstants.RESERVATION_BASE_URL + ServiceConstants.GET_ALL_RESERVATIONS)
     public ResponseEntity<StandardResponse<?>> getAllReservations(
             @RequestParam(required = false) String searchText,
-            @RequestParam(required = false) Reservation.ReservationStatus status,
+            @RequestParam(required = false) Long statusId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        return ResponseEntity.ok(reservationService.getAllReservations(searchText, status, fromDate, toDate, page, size));
+        return ResponseEntity.ok(reservationService.getAllReservations(searchText, statusId, fromDate, toDate, page, size));
     }
 
     @GetMapping(ServiceConstants.RESERVATION_BASE_URL + ServiceConstants.GET_RESERVATIONS_BY_GUEST)

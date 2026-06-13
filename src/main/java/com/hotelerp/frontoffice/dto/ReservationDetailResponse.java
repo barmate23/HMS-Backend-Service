@@ -60,7 +60,7 @@ public class ReservationDetailResponse {
     private Integer numberOfChildren;
 
     // ── Status & Plan ──────────────────────────────────────────────────────
-    private Reservation.ReservationStatus reservationStatus;
+    private String reservationStatus;
     private Long ratePlanId;
     private String ratePlanName;
 

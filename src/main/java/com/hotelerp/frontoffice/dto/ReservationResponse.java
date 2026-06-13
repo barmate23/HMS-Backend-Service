@@ -50,7 +50,7 @@ public class ReservationResponse {
     private Integer   numberOfChildren;
 
     // ── STATUS column ──────────────────────────────────────────────────────
-    private Reservation.ReservationStatus reservationStatus;
+    private String reservationStatus;
 
     // ── BILLING column ─────────────────────────────────────────────────────
     private BigDecimal grandTotal;    // sum of Booking.finalPrice

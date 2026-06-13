@@ -64,7 +64,7 @@ public class ReservationRequest {
     private Integer numberOfChildren = 0;
 
     @NotNull(message = "Reservation status is required")
-    private Reservation.ReservationStatus reservationStatus;
+    private Long reservationStatusId;
 
     // ── Room & Rate Plan ───────────────────────────────────────────────────
 
