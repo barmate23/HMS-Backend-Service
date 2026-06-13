@@ -1,13 +1,11 @@
 package com.hotelerp.frontoffice.service;
 
+import com.hotelerp.common.entity.Reservation;
+import com.hotelerp.common.entity.Reservation.ReservationStatus;
 import com.hotelerp.frontoffice.common.StandardResponse;
 import com.hotelerp.frontoffice.dto.CheckInRequest;
 import com.hotelerp.frontoffice.dto.CheckOutRequest;
 import com.hotelerp.frontoffice.dto.ReservationRequest;
-
-import java.time.LocalDate;
-
-import com.hotelerp.frontoffice.entity.Reservation;
 
 import java.time.LocalDate;
 
@@ -23,7 +21,7 @@ public interface ReservationService {
     StandardResponse<?> getReservationById(Long id);
 
     /** Listing: slim response with only fields visible on the list screen (with filters and paging) */
-    StandardResponse<?> getAllReservations(String searchText, Reservation.ReservationStatus status, 
+    StandardResponse<?> getAllReservations(String searchText, ReservationStatus status, 
                                            LocalDate fromDate, LocalDate toDate, int page, int size);
 
     /** Listing: slim reservations for a specific guest */

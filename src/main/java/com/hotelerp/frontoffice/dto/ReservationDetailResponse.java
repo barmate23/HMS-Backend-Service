@@ -1,6 +1,7 @@
 package com.hotelerp.frontoffice.dto;
 
-import com.hotelerp.frontoffice.entity.Reservation;
+import com.hotelerp.common.entity.Reservation;
+import com.hotelerp.common.entity.Reservation.ReservationStatus;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -60,7 +61,7 @@ public class ReservationDetailResponse {
     private Integer numberOfChildren;
 
     // ── Status & Plan ──────────────────────────────────────────────────────
-    private Reservation.ReservationStatus reservationStatus;
+    private ReservationStatus reservationStatus;
     private Long ratePlanId;
     private String ratePlanName;
 

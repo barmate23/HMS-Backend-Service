@@ -1,6 +1,9 @@
 package com.hotelerp.frontoffice.dto;
 
-import com.hotelerp.frontoffice.entity.Guest;
+import com.hotelerp.common.entity.Guest;
+import com.hotelerp.common.entity.Guest.Title;
+import com.hotelerp.common.entity.Guest.Gender;
+import com.hotelerp.common.entity.Guest.IdProofType;
 import lombok.*;
 
 import java.time.LocalDate;
@@ -18,7 +21,7 @@ public class GuestResponse {
     private Long id;
 
     // Personal
-    private Guest.Title title;
+    private Title title;
     private String firstName;
     private String lastName;
     private String fullName;               // firstName + " " + lastName
@@ -36,9 +39,9 @@ public class GuestResponse {
 
     // Identity
     private String nationality;
-    private Guest.Gender gender;
+    private Gender gender;
     private LocalDate dateOfBirth;
-    private Guest.IdProofType idProofType;
+    private IdProofType idProofType;
     private String idProofNumber;
 
     // Extras

@@ -1,7 +1,7 @@
 package com.hotelerp.frontoffice.dto;
 
-import com.hotelerp.frontoffice.entity.Booking;
-import com.hotelerp.frontoffice.entity.Floor;
+import com.hotelerp.common.entity.Booking;
+import com.hotelerp.common.entity.Floor;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -42,7 +42,7 @@ public class BookingResponse {
     private BigDecimal finalPrice;
 
     // ── Status ────────────────────────────────────────────────────────────
-    private Booking.BookingStatus bookingStatus;
+    private String bookingStatus;
 
     // ── Audit ─────────────────────────────────────────────────────────────
     private LocalDateTime createdAt;

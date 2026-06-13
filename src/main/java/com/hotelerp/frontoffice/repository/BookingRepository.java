@@ -1,6 +1,6 @@
 package com.hotelerp.frontoffice.repository;
 
-import com.hotelerp.frontoffice.entity.Booking;
+import com.hotelerp.common.entity.Booking;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -24,7 +24,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long>, JpaSpec
     @Query("SELECT COUNT(b) > 0 FROM Booking b " +
            "WHERE b.room.id = :roomId " +
            "AND b.isDeleted = false " +
-           "AND b.bookingStatus NOT IN (com.hotelerp.frontoffice.entity.Booking.BookingStatus.CANCELLED) " +
+           "AND b.bookingStatus NOT IN (com.hotelerp.common.entity.Booking.BookingStatus.CANCELLED) " +
            "AND b.checkInDate < :checkOut " +
            "AND b.checkOutDate > :checkIn")
     boolean isRoomBooked(
@@ -39,7 +39,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long>, JpaSpec
            "WHERE b.room.id = :roomId " +
            "AND b.id <> :excludeId " +
            "AND b.isDeleted = false " +
-           "AND b.bookingStatus NOT IN (com.hotelerp.frontoffice.entity.Booking.BookingStatus.CANCELLED) " +
+           "AND b.bookingStatus NOT IN (com.hotelerp.common.entity.Booking.BookingStatus.CANCELLED) " +
            "AND b.checkInDate < :checkOut " +
            "AND b.checkOutDate > :checkIn")
     boolean isRoomBookedExcluding(
@@ -55,7 +55,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long>, JpaSpec
            "WHERE b.room.id = :roomId " +
            "AND b.reservation.id <> :resId " +
            "AND b.isDeleted = false " +
-           "AND b.bookingStatus NOT IN (com.hotelerp.frontoffice.entity.Booking.BookingStatus.CANCELLED) " +
+           "AND b.bookingStatus NOT IN (com.hotelerp.common.entity.Booking.BookingStatus.CANCELLED) " +
            "AND b.checkInDate < :checkOut " +
            "AND b.checkOutDate > :checkIn")
     boolean isRoomBookedExcludingReservation(
@@ -70,7 +70,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long>, JpaSpec
      */
     @Query("SELECT b FROM Booking b " +
            "WHERE b.isDeleted = false " +
-           "AND b.bookingStatus NOT IN (com.hotelerp.frontoffice.entity.Booking.BookingStatus.CANCELLED) " +
+           "AND b.bookingStatus NOT IN (com.hotelerp.common.entity.Booking.BookingStatus.CANCELLED) " +
            "AND b.checkInDate < :endDate " +
            "AND b.checkOutDate > :startDate")
     List<Booking> findBookingsInRange(

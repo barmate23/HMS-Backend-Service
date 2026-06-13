@@ -1,6 +1,9 @@
 package com.hotelerp.frontoffice.dto;
 
-import com.hotelerp.frontoffice.entity.Guest;
+import com.hotelerp.common.entity.Guest;
+import com.hotelerp.common.entity.Guest.Title;
+import com.hotelerp.common.entity.Guest.Gender;
+import com.hotelerp.common.entity.Guest.IdProofType;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -21,7 +24,7 @@ public class GuestRequest {
 
     // ── Personal Info ─────────────────────────────────────────────────────
 
-    private Guest.Title title;                  // MR, MRS, MS, MISS, DR, PROF
+    private Title title;                  // MR, MRS, MS, MISS, DR, PROF
 
     @NotBlank(message = "First name is required")
     private String firstName;
@@ -50,14 +53,15 @@ public class GuestRequest {
     // ── Identity & Additional Info ────────────────────────────────────────
 
     private String nationality;
-    private Guest.Gender gender;
+    private Gender gender;
     private LocalDate dateOfBirth;
 
-    private Guest.IdProofType idProofType;
+    private IdProofType idProofType;
     private String idProofNumber;
 
     private String guestNotes;
     private String preference;
 
+    @Builder.Default
     private Boolean isVip = false;
 }

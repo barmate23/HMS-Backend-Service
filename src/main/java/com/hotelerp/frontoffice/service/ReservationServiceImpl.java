@@ -1,8 +1,9 @@
 package com.hotelerp.frontoffice.service;
 
+import com.hotelerp.common.entity.*;
 import com.hotelerp.frontoffice.common.StandardResponse;
 import com.hotelerp.frontoffice.dto.*;
-import com.hotelerp.frontoffice.entity.*;
+import com.hotelerp.common.entity.Reservation.ReservationStatus;
 import com.hotelerp.frontoffice.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +37,7 @@ public class ReservationServiceImpl implements ReservationService {
     private final PaymentRepository paymentRepository;
     private final RoomAuditRepository roomAuditRepository;
     private final RatePlanRepository ratePlanRepository;
+    private final CommonMasterRepository commonMasterRepository;
 
     // ── Create ─────────────────────────────────────────────────────────────
 
@@ -136,7 +138,7 @@ public class ReservationServiceImpl implements ReservationService {
                     .numberOfRooms(rooms.size())
                     .reservationStatus(req.getReservationStatus() != null
                             ? req.getReservationStatus()
-                            : Reservation.ReservationStatus.CONFIRMED)
+                            : ReservationStatus.CONFIRMED)
                     .ratePlan(ratePlan)
                     .billingName(req.getBillingName())
                     .billingAddress(req.getBillingAddress())
@@ -176,7 +178,7 @@ public class ReservationServiceImpl implements ReservationService {
                         .discountPercentage(BigDecimal.ZERO)
                         .discountAmount(BigDecimal.ZERO)
                         .finalPrice(total)
-                        .bookingStatus(Booking.BookingStatus.CONFIRMED)
+                        .bookingStatus(mapResStatusToBookingStatus(req.getReservationStatus()))
                         .isDeleted(false)
                         .build();
 
@@ -388,25 +390,20 @@ public class ReservationServiceImpl implements ReservationService {
         guest.setUpdatedAt(LocalDateTime.now());
     }
 
-    private Booking.BookingStatus mapResStatusToBookingStatus(Reservation.ReservationStatus status) {
-        if (status == null)
-            return Booking.BookingStatus.CONFIRMED;
-        switch (status) {
-            case PENDING:
-                return Booking.BookingStatus.PENDING;
-            case CONFIRMED:
-                return Booking.BookingStatus.CONFIRMED;
-            case CHECKED_IN:
-                return Booking.BookingStatus.CHECKED_IN;
-            case CHECKED_OUT:
-                return Booking.BookingStatus.CHECKED_OUT;
-            case CANCELLED:
-                return Booking.BookingStatus.CANCELLED;
-            case NO_SHOW:
-                return Booking.BookingStatus.NO_SHOW;
-            default:
-                return Booking.BookingStatus.CONFIRMED;
+    private CommonMaster getCommonMaster(String category, String code) {
+        return commonMasterRepository.findByCategoryAndCode(category, code).orElse(null);
+    }
+
+    private CommonMaster getBookingStatus(String code) {
+        return getCommonMaster("BOOKING_STATUS", code);
+    }
+
+    private CommonMaster mapResStatusToBookingStatus(ReservationStatus status) {
+        String code = "CONFIRMED";
+        if (status != null) {
+            code = status.name();
         }
+        return getBookingStatus(code);
     }
 
     // ── Read ───────────────────────────────────────────────────────────────
@@ -437,7 +434,7 @@ public class ReservationServiceImpl implements ReservationService {
 
     @Override
     @Transactional(readOnly = true)
-    public StandardResponse<?> getAllReservations(String searchText, Reservation.ReservationStatus status,
+    public StandardResponse<?> getAllReservations(String searchText, ReservationStatus status,
             LocalDate fromDate, LocalDate toDate, int page, int size) {
         log.info("Fetching all reservations, search={}, status={}, from={}, to={}, page={}, size={}",
                 searchText, status, fromDate, toDate, page, size);
@@ -524,10 +521,10 @@ public class ReservationServiceImpl implements ReservationService {
                 return StandardResponse.error("Reservation not found", "NOT_FOUND", "id", null);
             }
 
-            reservation.setReservationStatus(Reservation.ReservationStatus.CANCELLED);
+            reservation.setReservationStatus(ReservationStatus.CANCELLED);
             List<Booking> resBookings = bookingRepository.findByReservation_IdAndIsDeletedFalse(id);
             resBookings.forEach(b -> {
-                b.setBookingStatus(Booking.BookingStatus.CANCELLED);
+                b.setBookingStatus(commonMasterRepository.findByCategoryAndCode("BOOKING_STATUS", "CANCELLED").orElse(null));
 
                 RoomAudit audit = RoomAudit.builder()
                         .room(b.getRoom())
@@ -790,7 +787,7 @@ public class ReservationServiceImpl implements ReservationService {
                 .discountPercentage(b.getDiscountPercentage())
                 .discountAmount(b.getDiscountAmount())
                 .finalPrice(b.getFinalPrice())
-                .bookingStatus(b.getBookingStatus())
+                .bookingStatus(b.getBookingStatus() != null ? b.getBookingStatus().getCode() : null)
                 .createdAt(b.getCreatedAt())
                 .updatedAt(b.getUpdatedAt())
                 .build();
@@ -835,7 +832,7 @@ public class ReservationServiceImpl implements ReservationService {
                 .roomTypeName(room.getRoomType() != null ? room.getRoomType().getName() : null)
                 .basePricePerNight(room.getRoomType() != null ? room.getRoomType().getBasePricePerNight() : null)
                 .maxOccupancy(room.getMaxOccupancy())
-                .status(room.getStatus())
+                .status(room.getStatus() != null ? room.getStatus().getCode() : null)
                 .isActive(room.getIsActive())
                 .build();
     }
@@ -897,21 +894,21 @@ public class ReservationServiceImpl implements ReservationService {
                 pendingCount = bookingRepository
                         .count((root, query, cb) -> cb.and(cb.equal(root.get("isDeleted"), false),
                                 cb.equal(root.get("checkOutDate"), targetDate),
-                                cb.equal(root.get("bookingStatus"), Booking.BookingStatus.CHECKED_IN)));
+                                cb.equal(root.get("bookingStatus"), getBookingStatus("CHECKED_IN"))));
                 processedCount = bookingRepository
                         .count((root, query, cb) -> cb.and(cb.equal(root.get("isDeleted"), false),
                                 cb.equal(root.get("checkOutDate"), targetDate),
-                                cb.equal(root.get("bookingStatus"), Booking.BookingStatus.CHECKED_OUT)));
+                                cb.equal(root.get("bookingStatus"), getBookingStatus("CHECKED_OUT"))));
             } else {
                 pendingCount = bookingRepository
                         .count((root, query, cb) -> cb.and(cb.equal(root.get("isDeleted"), false),
                                 cb.equal(root.get("checkInDate"), targetDate),
-                                cb.or(cb.equal(root.get("bookingStatus"), Booking.BookingStatus.PENDING),
-                                        cb.equal(root.get("bookingStatus"), Booking.BookingStatus.CONFIRMED))));
+                                cb.or(cb.equal(root.get("bookingStatus"), getBookingStatus("PENDING")),
+                                        cb.equal(root.get("bookingStatus"), getBookingStatus("CONFIRMED")))));
                 processedCount = bookingRepository
                         .count((root, query, cb) -> cb.and(cb.equal(root.get("isDeleted"), false),
                                 cb.equal(root.get("checkInDate"), targetDate),
-                                cb.equal(root.get("bookingStatus"), Booking.BookingStatus.CHECKED_IN)));
+                                cb.equal(root.get("bookingStatus"), getBookingStatus("CHECKED_IN"))));
             }
 
             List<ArrivalBookingResponse> arrivals = bookingPage.getContent().stream()
@@ -938,20 +935,20 @@ public class ReservationServiceImpl implements ReservationService {
 
                         String statusStr;
                         if (checkout) {
-                            if (b.getBookingStatus() == Booking.BookingStatus.CHECKED_IN)
+                            if (b.getBookingStatus() != null && "CHECKED_IN".equals(b.getBookingStatus().getCode()))
                                 statusStr = "Pending";
-                            else if (b.getBookingStatus() == Booking.BookingStatus.CHECKED_OUT)
+                            else if (b.getBookingStatus() != null && "CHECKED_OUT".equals(b.getBookingStatus().getCode()))
                                 statusStr = "Checked Out";
                             else
-                                statusStr = b.getBookingStatus().name();
+                                statusStr = (b.getBookingStatus() != null ? b.getBookingStatus().getCode() : null);
                         } else {
-                            if (b.getBookingStatus() == Booking.BookingStatus.PENDING
-                                    || b.getBookingStatus() == Booking.BookingStatus.CONFIRMED)
+                            if (b.getBookingStatus() != null && ("PENDING".equals(b.getBookingStatus().getCode())
+                                    || "CONFIRMED".equals(b.getBookingStatus().getCode())))
                                 statusStr = "Pending";
-                            else if (b.getBookingStatus() == Booking.BookingStatus.CHECKED_IN)
+                            else if (b.getBookingStatus() != null && "CHECKED_IN".equals(b.getBookingStatus().getCode()))
                                 statusStr = "Checked In";
                             else
-                                statusStr = b.getBookingStatus().name();
+                                statusStr = (b.getBookingStatus() != null ? b.getBookingStatus().getCode() : null);
                         }
 
                         return ArrivalBookingResponse.builder()
@@ -1099,12 +1096,12 @@ public class ReservationServiceImpl implements ReservationService {
 
             // Update booking's room & status
             b.setRoom(room);
-            b.setBookingStatus(Booking.BookingStatus.CHECKED_IN);
+            b.setBookingStatus(getBookingStatus("CHECKED_IN"));
             b.setUpdatedAt(LocalDateTime.now());
             bookingRepository.save(b);
 
             // Update room status
-            room.setStatus(Room.RoomStatus.OCCUPIED);
+            room.setStatus(getCommonMaster("ROOM_STATUS", "OCCUPIED"));
             room.setUpdatedAt(LocalDateTime.now());
             roomRepository.save(room);
 
@@ -1112,10 +1109,10 @@ public class ReservationServiceImpl implements ReservationService {
             Reservation res = b.getReservation();
             List<Booking> bookings = bookingRepository.findByReservation_IdAndIsDeletedFalse(res.getId());
             boolean allCheckedIn = bookings.stream()
-                    .allMatch(bk -> bk.getBookingStatus() == Booking.BookingStatus.CHECKED_IN
-                            || bk.getBookingStatus() == Booking.BookingStatus.CHECKED_OUT);
+                    .allMatch(bk -> bk.getBookingStatus() == getBookingStatus("CHECKED_IN")
+                            || bk.getBookingStatus() == getBookingStatus("CHECKED_OUT"));
             if (allCheckedIn) {
-                res.setReservationStatus(Reservation.ReservationStatus.CHECKED_IN);
+                res.setReservationStatus(ReservationStatus.CHECKED_IN);
                 res.setUpdatedAt(LocalDateTime.now());
                 reservationRepository.save(res);
             }
@@ -1134,7 +1131,7 @@ public class ReservationServiceImpl implements ReservationService {
                         .taxAmount(taxAmount)
                         .totalAmount(totalAmount)
                         .additionalCharges(BigDecimal.ZERO)
-                        .billStatus(Bill.BillStatus.ISSUED)
+                        .billStatus(getCommonMaster("BILL_STATUS", "ISSUED"))
                         .billDate(LocalDate.now())
                         .paymentDueDate(b.getCheckOutDate())
                         .createdAt(LocalDateTime.now())
@@ -1163,11 +1160,11 @@ public class ReservationServiceImpl implements ReservationService {
                         .reduce(BigDecimal.ZERO, BigDecimal::add);
 
                 if (totalPaid.compareTo(bill.getTotalAmount()) >= 0) {
-                    bill.setBillStatus(Bill.BillStatus.PAID);
+                    bill.setBillStatus(getCommonMaster("BILL_STATUS", "PAID"));
                 } else if (totalPaid.compareTo(BigDecimal.ZERO) > 0) {
-                    bill.setBillStatus(Bill.BillStatus.PARTIALLY_PAID);
+                    bill.setBillStatus(getCommonMaster("BILL_STATUS", "PARTIALLY_PAID"));
                 } else {
-                    bill.setBillStatus(Bill.BillStatus.ISSUED);
+                    bill.setBillStatus(getCommonMaster("BILL_STATUS", "ISSUED"));
                 }
                 bill.setUpdatedAt(LocalDateTime.now());
                 billRepository.save(bill);
@@ -1332,7 +1329,7 @@ public class ReservationServiceImpl implements ReservationService {
                     .orElseThrow(
                             () -> new IllegalArgumentException("Booking not found with ID: " + request.getBookingId()));
 
-            if (b.getBookingStatus() != Booking.BookingStatus.CHECKED_IN) {
+            if (b.getBookingStatus() != getBookingStatus("CHECKED_IN")) {
                 return StandardResponse.error("Booking is not in CHECKED_IN status", "INVALID_STATUS", "bookingStatus",
                         null);
             }
@@ -1340,7 +1337,7 @@ public class ReservationServiceImpl implements ReservationService {
             Room room = b.getRoom();
 
             // Update booking status
-            b.setBookingStatus(Booking.BookingStatus.CHECKED_OUT);
+            b.setBookingStatus(getBookingStatus("CHECKED_OUT"));
             b.setUpdatedAt(LocalDateTime.now());
 
             // Append checkout details/feedback/transportation to notes for audit
@@ -1366,7 +1363,7 @@ public class ReservationServiceImpl implements ReservationService {
 
             // Update Room status to VACANT
             if (room != null) {
-                room.setStatus(Room.RoomStatus.VACANT);
+                room.setStatus(getCommonMaster("ROOM_STATUS", "VACANT"));
                 room.setUpdatedAt(LocalDateTime.now());
                 roomRepository.save(room);
             }
@@ -1376,9 +1373,9 @@ public class ReservationServiceImpl implements ReservationService {
             Reservation res = b.getReservation();
             List<Booking> bookings = bookingRepository.findByReservation_IdAndIsDeletedFalse(res.getId());
             boolean allCheckedOut = bookings.stream()
-                    .allMatch(bk -> bk.getBookingStatus() == Booking.BookingStatus.CHECKED_OUT);
+                    .allMatch(bk -> bk.getBookingStatus() == getBookingStatus("CHECKED_OUT"));
             if (allCheckedOut) {
-                res.setReservationStatus(Reservation.ReservationStatus.CHECKED_OUT);
+                res.setReservationStatus(ReservationStatus.CHECKED_OUT);
                 res.setUpdatedAt(LocalDateTime.now());
                 reservationRepository.save(res);
             }
@@ -1397,7 +1394,7 @@ public class ReservationServiceImpl implements ReservationService {
                         .taxAmount(taxAmount)
                         .totalAmount(totalAmount)
                         .additionalCharges(BigDecimal.ZERO)
-                        .billStatus(Bill.BillStatus.ISSUED)
+                        .billStatus(getCommonMaster("BILL_STATUS", "ISSUED"))
                         .billDate(LocalDate.now())
                         .paymentDueDate(b.getCheckOutDate())
                         .createdAt(LocalDateTime.now())
@@ -1441,11 +1438,11 @@ public class ReservationServiceImpl implements ReservationService {
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
             if (totalPaid.compareTo(bill.getTotalAmount()) >= 0) {
-                bill.setBillStatus(Bill.BillStatus.PAID);
+                bill.setBillStatus(getCommonMaster("BILL_STATUS", "PAID"));
             } else if (totalPaid.compareTo(BigDecimal.ZERO) > 0) {
-                bill.setBillStatus(Bill.BillStatus.PARTIALLY_PAID);
+                bill.setBillStatus(getCommonMaster("BILL_STATUS", "PARTIALLY_PAID"));
             } else {
-                bill.setBillStatus(Bill.BillStatus.ISSUED);
+                bill.setBillStatus(getCommonMaster("BILL_STATUS", "ISSUED"));
             }
             bill.setUpdatedAt(LocalDateTime.now());
             billRepository.save(bill);
@@ -1564,7 +1561,7 @@ public class ReservationServiceImpl implements ReservationService {
                 .build();
     }
 
-    private String resolveBookingColor(Reservation.ReservationStatus status) {
+    private String resolveBookingColor(ReservationStatus status) {
         if (status == null)
             return "#607d8b";
         return switch (status) {
@@ -1578,3 +1575,4 @@ public class ReservationServiceImpl implements ReservationService {
         };
     }
 }
+

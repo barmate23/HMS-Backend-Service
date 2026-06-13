@@ -1,6 +1,6 @@
 package com.hotelerp.frontoffice.repository;
 
-import com.hotelerp.frontoffice.entity.Bill;
+import com.hotelerp.common.entity.Bill;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -23,6 +23,6 @@ public interface BillRepository extends JpaRepository<Bill, Long> {
     @Query("SELECT COALESCE(SUM(p.amount), 0) " +
            "FROM Payment p " +
            "WHERE p.bill.booking.reservation.id = :reservationId " +
-           "AND p.paymentStatus = com.hotelerp.frontoffice.entity.Payment.PaymentStatus.SUCCESS")
+           "AND p.paymentStatus = com.hotelerp.common.entity.Payment.PaymentStatus.SUCCESS")
     BigDecimal sumPaidAmountByReservation(@Param("reservationId") Long reservationId);
 }

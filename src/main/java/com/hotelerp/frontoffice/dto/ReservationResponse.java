@@ -1,6 +1,7 @@
 package com.hotelerp.frontoffice.dto;
 
-import com.hotelerp.frontoffice.entity.Reservation;
+import com.hotelerp.common.entity.Reservation;
+import com.hotelerp.common.entity.Reservation.ReservationStatus;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -50,7 +51,7 @@ public class ReservationResponse {
     private Integer   numberOfChildren;
 
     // ── STATUS column ──────────────────────────────────────────────────────
-    private Reservation.ReservationStatus reservationStatus;
+    private ReservationStatus reservationStatus;
 
     // ── BILLING column ─────────────────────────────────────────────────────
     private BigDecimal grandTotal;    // sum of Booking.finalPrice

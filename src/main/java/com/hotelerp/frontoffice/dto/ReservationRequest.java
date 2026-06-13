@@ -1,6 +1,7 @@
 package com.hotelerp.frontoffice.dto;
 
-import com.hotelerp.frontoffice.entity.Reservation;
+import com.hotelerp.common.entity.Reservation;
+import com.hotelerp.common.entity.Reservation.ReservationStatus;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -64,7 +65,7 @@ public class ReservationRequest {
     private Integer numberOfChildren = 0;
 
     @NotNull(message = "Reservation status is required")
-    private Reservation.ReservationStatus reservationStatus;
+    private ReservationStatus reservationStatus;
 
     // ── Room & Rate Plan ───────────────────────────────────────────────────
 

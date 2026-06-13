@@ -1,6 +1,6 @@
 package com.hotelerp.frontoffice.repository;
 
-import com.hotelerp.frontoffice.entity.RoomAudit;
+import com.hotelerp.common.entity.RoomAudit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
