@@ -29,7 +29,7 @@ public class ServiceConstants {
     // ── Room Availability ──────────────────────────────────────────────────
     public static final String ROOM_BASE_URL = "/api/frontOfficeService/v1/rooms";
     public static final String GET_AVAILABLE_ROOMS = "/available";
-    public static final String GET_ROOM_STATUS_BY_DATE = "/status-by-date";
+    public static final String GET_ROOM_STATUS_BY_DATE = "/getRoomStatusByDate";
 
     // Legacy alias kept so existing GuestController compile unchanged
     public static final String BASE_URL = GUEST_BASE_URL;
