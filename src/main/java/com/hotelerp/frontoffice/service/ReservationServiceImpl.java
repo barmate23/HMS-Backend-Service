@@ -1582,7 +1582,7 @@ public class ReservationServiceImpl implements ReservationService {
         try {
             LocalDate targetDate = date != null ? date : LocalDate.now();
             List<Room> rooms = roomRepository.findAll().stream()
-                    .filter(r -> !r.getIsDeleted())
+                    .filter(r -> r.getIsActive())
                     .toList();
 
             // Fetch all bookings that overlap with this targetDate
