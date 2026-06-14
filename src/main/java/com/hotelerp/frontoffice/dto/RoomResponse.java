@@ -16,6 +16,7 @@ public class RoomResponse {
     private Long   id;
     private String roomNumber;
     private String floor;
+    private Long floorId;
 
     // Room type
     private Long       roomTypeId;

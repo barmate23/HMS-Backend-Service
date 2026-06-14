@@ -836,6 +836,7 @@ public class ReservationServiceImpl implements ReservationService {
                 .id(room.getId())
                 .roomNumber(room.getRoomNumber())
                 .floor(room.getFloor().getFloorNumber())
+                .floorId(room.getFloor().getId())
                 .roomTypeId(room.getRoomType() != null ? room.getRoomType().getId() : null)
                 .roomTypeName(room.getRoomType() != null ? room.getRoomType().getName() : null)
                 .basePricePerNight(room.getRoomType() != null ? room.getRoomType().getBasePricePerNight() : null)
