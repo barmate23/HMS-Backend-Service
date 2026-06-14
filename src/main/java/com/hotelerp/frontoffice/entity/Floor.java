@@ -26,7 +26,7 @@ public class Floor {
     @JoinColumn(name = "hotelId")
     private Hotel hotel;
     
-    @Column(name = "floorNumber", length = 20)
+    @Column(name = "floor_number", length = 20)
     private String floorNumber;
 
     @Column(name = "noOfRooms")
