@@ -26,7 +26,7 @@ public class Room {
     @Column(name = "roomNumber", nullable = false, length = 20)
     private String roomNumber;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne
     @JoinColumn(name = "floorId", nullable = false)
     private Floor floor;
 
