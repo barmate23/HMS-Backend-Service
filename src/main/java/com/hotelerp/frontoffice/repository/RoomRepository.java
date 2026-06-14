@@ -19,7 +19,6 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
      */
     @Query("SELECT r FROM Room r " +
            "WHERE r.isActive = true " +
-           "AND (r.status IS NULL OR r.status.code = 'VACANT') " +
            "AND r.id NOT IN (" +
            "  SELECT b.room.id FROM Booking b " +
            "  JOIN b.reservation res " +
