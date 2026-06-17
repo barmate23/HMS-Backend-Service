@@ -1634,6 +1634,196 @@ public class ReservationServiceImpl implements ReservationService {
         }
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public StandardResponse<?> getFrontOfficeDashboardData(LocalDate date) {
+        LocalDate businessDate = date != null ? date : LocalDate.now();
+        log.info("Fetching front office dashboard for date={}", businessDate);
+        try {
+            List<Room> rooms = roomRepository.findAll().stream()
+                    .filter(room -> Boolean.TRUE.equals(room.getIsActive()))
+                    .filter(room -> !Boolean.TRUE.equals(room.getIsDeleted()))
+                    .sorted(Comparator
+                            .comparing((Room room) -> room.getFloor() != null ? room.getFloor().getFloorNumber() : "", Comparator.nullsLast(String::compareTo))
+                            .thenComparing(Room::getRoomNumber, Comparator.nullsLast(String::compareTo)))
+                    .toList();
+
+            List<Booking> activeBookings = bookingRepository.findBookingsInRange(businessDate, businessDate.plusDays(1)).stream()
+                    .filter(booking -> !Boolean.TRUE.equals(booking.getIsDeleted()))
+                    .filter(booking -> booking.getReservation() != null && !Boolean.TRUE.equals(booking.getReservation().getIsDeleted()))
+                    .filter(booking -> !isCancelledStatus(booking.getBookingStatus()))
+                    .toList();
+
+            Map<Long, Booking> bookingByRoom = activeBookings.stream()
+                    .filter(booking -> booking.getRoom() != null && booking.getRoom().getId() != null)
+                    .collect(Collectors.toMap(booking -> booking.getRoom().getId(), booking -> booking, (first, second) -> first));
+
+            List<FrontOfficeDashboardResponse.RoomCard> roomCards = rooms.stream()
+                    .map(room -> mapFrontOfficeRoomCard(room, bookingByRoom.get(room.getId())))
+                    .toList();
+
+            List<FrontOfficeDashboardResponse.FloorBoard> floorBoards = roomCards.stream()
+                    .collect(Collectors.groupingBy(
+                            card -> card.getFloorId() != null ? card.getFloorId() : -1L,
+                            LinkedHashMap::new,
+                            Collectors.toList()))
+                    .values()
+                    .stream()
+                    .map(this::mapFloorBoard)
+                    .toList();
+
+            FrontOfficeDashboardResponse.Summary summary = FrontOfficeDashboardResponse.Summary.builder()
+                    .totalRooms(roomCards.size())
+                    .totalBookings((int) activeBookings.stream()
+                            .map(booking -> booking.getReservation() != null ? booking.getReservation().getId() : booking.getId())
+                            .filter(Objects::nonNull)
+                            .distinct()
+                            .count())
+                    .availableRooms(countRooms(roomCards, "AVAILABLE"))
+                    .occupiedRooms(countRooms(roomCards, "OCCUPIED"))
+                    .bookedRooms(countRooms(roomCards, "BOOKED"))
+                    .blockedRooms(countRooms(roomCards, "BLOCKED"))
+                    .underMaintenanceRooms(countRooms(roomCards, "MAINTENANCE"))
+                    .build();
+
+            FrontOfficeDashboardResponse response = FrontOfficeDashboardResponse.builder()
+                    .businessDate(businessDate)
+                    .summary(summary)
+                    .floors(floorBoards)
+                    .build();
+
+            return StandardResponse.success(response, "Front office dashboard data fetched successfully");
+        } catch (Exception e) {
+            log.error("Error fetching front office dashboard: ", e);
+            return StandardResponse.error("Failed to fetch front office dashboard data", "FETCH_ERROR", null, e.getMessage());
+        }
+    }
+
+    private FrontOfficeDashboardResponse.FloorBoard mapFloorBoard(List<FrontOfficeDashboardResponse.RoomCard> cards) {
+        FrontOfficeDashboardResponse.RoomCard first = cards.get(0);
+        return FrontOfficeDashboardResponse.FloorBoard.builder()
+                .floorId(first.getFloorId())
+                .floorName(first.getFloorName())
+                .totalRooms(cards.size())
+                .availableRooms(countRooms(cards, "AVAILABLE"))
+                .occupiedRooms(countRooms(cards, "OCCUPIED"))
+                .bookedRooms(countRooms(cards, "BOOKED"))
+                .blockedRooms(countRooms(cards, "BLOCKED"))
+                .underMaintenanceRooms(countRooms(cards, "MAINTENANCE"))
+                .rooms(cards)
+                .build();
+    }
+
+    private FrontOfficeDashboardResponse.RoomCard mapFrontOfficeRoomCard(Room room, Booking booking) {
+        String roomStatus = statusValue(room.getStatus());
+        String hkStatus = statusValue(room.getHkStatus());
+        String displayStatus = resolveFrontOfficeDisplayStatus(roomStatus, hkStatus, booking);
+
+        return FrontOfficeDashboardResponse.RoomCard.builder()
+                .roomId(room.getId())
+                .roomNumber(room.getRoomNumber())
+                .floorId(room.getFloor() != null ? room.getFloor().getId() : null)
+                .floorName(room.getFloor() != null ? room.getFloor().getFloorNumber() : "Unassigned")
+                .roomType(room.getRoomType() != null ? room.getRoomType().getName() : "-")
+                .maxOccupancy(room.getMaxOccupancy())
+                .roomStatus(roomStatus)
+                .housekeepingStatus(hkStatus)
+                .displayStatus(displayStatus)
+                .booking(booking != null ? mapFrontOfficeBookingSnapshot(booking) : null)
+                .build();
+    }
+
+    private FrontOfficeDashboardResponse.BookingSnapshot mapFrontOfficeBookingSnapshot(Booking booking) {
+        Reservation reservation = booking.getReservation();
+        Guest guest = reservation != null ? reservation.getGuest() : null;
+        BigDecimal paidAmount = BigDecimal.ZERO;
+        if (reservation != null && reservation.getId() != null) {
+            paidAmount = Optional.ofNullable(billRepository.sumPaidAmountByReservation(reservation.getId()))
+                    .orElse(BigDecimal.ZERO);
+        }
+
+        return FrontOfficeDashboardResponse.BookingSnapshot.builder()
+                .bookingId(booking.getId())
+                .reservationId(reservation != null ? reservation.getId() : null)
+                .reservationRef(reservation != null ? "RES-" + reservation.getId() : null)
+                .guestName(guestName(guest))
+                .guestPhone(guest != null ? guest.getPhone() : null)
+                .guestEmail(guest != null ? guest.getEmail() : null)
+                .vip(guest != null ? guest.getIsVip() : false)
+                .checkInDate(booking.getCheckInDate())
+                .checkOutDate(booking.getCheckOutDate())
+                .nights(booking.getNumberOfNights())
+                .adults(reservation != null ? reservation.getNumberOfAdults() : null)
+                .children(reservation != null ? reservation.getNumberOfChildren() : null)
+                .reservationStatus(reservation != null ? statusValue(reservation.getReservationStatus()) : null)
+                .bookingStatus(statusValue(booking.getBookingStatus()))
+                .ratePlanName(reservation != null && reservation.getRatePlan() != null ? reservation.getRatePlan().getName() : null)
+                .ratePerNight(booking.getRatePerNight())
+                .totalAmount(booking.getFinalPrice())
+                .paidAmount(paidAmount)
+                .billingName(reservation != null ? reservation.getBillingName() : null)
+                .billingMode(reservation != null ? reservation.getBillingMode() : null)
+                .businessSource(reservation != null ? reservation.getBusinessSource() : null)
+                .marketSegment(reservation != null ? reservation.getMarketSegment() : null)
+                .specialRequests(reservation != null ? reservation.getSpecialRequests() : null)
+                .notes(reservation != null ? reservation.getNotes() : null)
+                .build();
+    }
+
+    private int countRooms(List<FrontOfficeDashboardResponse.RoomCard> rooms, String status) {
+        return (int) rooms.stream()
+                .filter(room -> status.equalsIgnoreCase(room.getDisplayStatus()))
+                .count();
+    }
+
+    private String resolveFrontOfficeDisplayStatus(String roomStatus, String hkStatus, Booking booking) {
+        if (booking != null) {
+            String bookingStatus = statusCode(booking.getBookingStatus());
+            if ("CHECKED_IN".equals(bookingStatus)) return "OCCUPIED";
+            if ("CONFIRMED".equals(bookingStatus) || "PENDING".equals(bookingStatus)) return "BOOKED";
+            return "BOOKED";
+        }
+        if (isMaintenanceStatus(roomStatus) || isMaintenanceStatus(hkStatus)) return "MAINTENANCE";
+        if (isBlockedStatus(roomStatus) || isBlockedStatus(hkStatus)) return "BLOCKED";
+        return "AVAILABLE";
+    }
+
+    private boolean isCancelledStatus(CommonMaster status) {
+        String code = statusCode(status);
+        return "CANCELLED".equals(code) || "NO_SHOW".equals(code) || "CHECKED_OUT".equals(code);
+    }
+
+    private boolean isMaintenanceStatus(String status) {
+        String value = normalizeStatus(status);
+        return value.contains("MAINTENANCE") || value.contains("REPAIR") || value.contains("SERVICE");
+    }
+
+    private boolean isBlockedStatus(String status) {
+        String value = normalizeStatus(status);
+        return value.contains("BLOCK") || value.contains("DND") || value.contains("OUT_OF_ORDER");
+    }
+
+    private String statusValue(CommonMaster status) {
+        if (status == null) return null;
+        return status.getValue() != null ? status.getValue() : status.getCode();
+    }
+
+    private String statusCode(CommonMaster status) {
+        if (status == null || status.getCode() == null) return "";
+        return status.getCode().trim().toUpperCase(Locale.ROOT);
+    }
+
+    private String normalizeStatus(String status) {
+        return status == null ? "" : status.trim().toUpperCase(Locale.ROOT).replace(' ', '_');
+    }
+
+    private String guestName(Guest guest) {
+        if (guest == null) return null;
+        return String.join(" ",
+                Optional.ofNullable(guest.getFirstName()).orElse(""),
+                Optional.ofNullable(guest.getLastName()).orElse("")).trim();
+    }
+
     private String resolveBookingColor(CommonMaster status) {
         if (status == null || status.getCode() == null)
             return "#607d8b";

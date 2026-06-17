@@ -57,5 +57,8 @@ public interface ReservationService {
     
     /** Get all bookings in a date range for Gantt chart view */
     StandardResponse<?> getGanttChartData(LocalDate startDate, LocalDate endDate);
+
+    /** Live Front Office dashboard for current room and booking position */
+    StandardResponse<?> getFrontOfficeDashboardData(LocalDate date);
 }
 

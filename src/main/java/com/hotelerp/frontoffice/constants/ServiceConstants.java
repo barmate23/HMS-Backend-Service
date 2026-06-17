@@ -25,6 +25,7 @@ public class ServiceConstants {
     public static final String COMPLETE_CHECKOUT = "/checkout";
     public static final String GET_GANTT_CHART = "/getGanttChartData";
     public static final String UPDATE_RESERVATION = "/updateReservation/{id}";
+    public static final String FRONT_OFFICE_DASHBOARD = "/dashboard/getDashboardData";
 
     // ── Room Availability ──────────────────────────────────────────────────
     public static final String ROOM_BASE_URL = "/api/frontOfficeService/v1/rooms";
