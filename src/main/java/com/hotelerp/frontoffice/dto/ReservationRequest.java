@@ -63,7 +63,7 @@ public class ReservationRequest {
 
     private Integer numberOfChildren = 0;
 
-    @NotNull(message = "Reservation status is required")
+//    @NotNull(message = "Reservation status is required")
     private Long reservationStatusId;
 
     // ── Room & Rate Plan ───────────────────────────────────────────────────
