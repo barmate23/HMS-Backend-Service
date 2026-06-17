@@ -88,6 +88,12 @@ public class ReservationController {
 
     // ── Room Availability Endpoint ─────────────────────────────────────────
 
+    @GetMapping(ServiceConstants.RESERVATION_BASE_URL + ServiceConstants.FRONT_OFFICE_DASHBOARD)
+    public ResponseEntity<StandardResponse<?>> getFrontOfficeDashboardData(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return ResponseEntity.ok(reservationService.getFrontOfficeDashboardData(date));
+    }
+
     @GetMapping(ServiceConstants.ROOM_BASE_URL + ServiceConstants.GET_AVAILABLE_ROOMS)
     public ResponseEntity<StandardResponse<?>> getAvailableRooms(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkIn,
