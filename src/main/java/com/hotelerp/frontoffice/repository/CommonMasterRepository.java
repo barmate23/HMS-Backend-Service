@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface CommonMasterRepository extends JpaRepository<CommonMaster, Long> {
     List<CommonMaster> findByCategoryAndIsActiveTrue(String category);
+    CommonMaster findByValue(String value);
 }

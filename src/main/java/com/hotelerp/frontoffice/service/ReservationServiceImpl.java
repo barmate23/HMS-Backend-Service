@@ -124,6 +124,7 @@ public class ReservationServiceImpl implements ReservationService {
             if (ratePlan == null) {
                 return StandardResponse.error("Rate plan not found", "RATE_PLAN_NOT_FOUND", "ratePlanId", null);
             }
+           CommonMaster bookingStatus = commonMasterRepository.findByValue("CONFIRMED");
 
             Reservation reservation = Reservation.builder()
                     .guest(guest)
@@ -135,9 +136,7 @@ public class ReservationServiceImpl implements ReservationService {
                     .numberOfAdults(req.getNumberOfAdults())
                     .numberOfChildren(req.getNumberOfChildren() != null ? req.getNumberOfChildren() : 0)
                     .numberOfRooms(rooms.size())
-                    .reservationStatus(req.getReservationStatusId() != null
-                            ? commonMasterRepository.findById(req.getReservationStatusId()).orElse(null)
-                            : null)
+                    .reservationStatus(bookingStatus)
                     .ratePlan(ratePlan)
                     .billingName(req.getBillingName())
                     .billingAddress(req.getBillingAddress())
