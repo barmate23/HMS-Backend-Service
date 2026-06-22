@@ -37,6 +37,8 @@ public class ReservationServiceImpl implements ReservationService {
     private final RoomAuditRepository roomAuditRepository;
     private final RatePlanRepository ratePlanRepository;
     private final CommonMasterRepository commonMasterRepository;
+    private final FolioRepository folioRepository;
+    private final FolioPostingRepository folioPostingRepository;
 
     // ── Create ─────────────────────────────────────────────────────────────
 
@@ -199,7 +201,21 @@ public class ReservationServiceImpl implements ReservationService {
                 roomAuditRepository.save(audit);
             }
 
-            log.info("Reservation created id={}, bookings={}", savedReservation.getId(), savedBookings.size());
+            // 7. Create Folio for the reservation
+            Folio folio = Folio.builder()
+                    .reservation(savedReservation)
+                    .folioNumber("FOL-" + savedReservation.getId() + "-" + (System.currentTimeMillis() % 10000))
+                    .status(commonMasterRepository.findAll().stream()
+                            .filter(cm -> "FOLIO_STATUS".equals(cm.getCategory()) && "OPEN".equals(cm.getCode()))
+                            .findFirst().orElse(null))
+                    .totalCharges(BigDecimal.ZERO)
+                    .totalPayments(BigDecimal.ZERO)
+                    .balance(BigDecimal.ZERO)
+                    .isDeleted(false)
+                    .build();
+            folioRepository.save(folio);
+
+            log.info("Reservation created id={}, bookings={}, folio={}", savedReservation.getId(), savedBookings.size(), folio.getFolioNumber());
             return StandardResponse.success(mapToResponse(savedReservation, savedBookings),
                     "Reservation created successfully");
 
@@ -1150,6 +1166,41 @@ public class ReservationServiceImpl implements ReservationService {
                 bill = billRepository.save(bill);
             }
 
+            // --- Folio Posting for Room Charge ---
+            final Bill finalBill = bill;
+            Folio folio = folioRepository.findByReservation_IdAndIsDeletedFalse(res.getId())
+                    .orElseGet(() -> {
+                        Folio newFolio = Folio.builder()
+                                .reservation(res)
+                                .folioNumber("FOL-" + res.getId() + "-" + (System.currentTimeMillis() % 10000))
+                                .status(commonMasterRepository.findAll().stream()
+                                        .filter(cm -> "FOLIO_STATUS".equals(cm.getCategory()) && "OPEN".equals(cm.getCode()))
+                                        .findFirst().orElse(null))
+                                .totalCharges(BigDecimal.ZERO)
+                                .totalPayments(BigDecimal.ZERO)
+                                .balance(BigDecimal.ZERO)
+                                .isDeleted(false)
+                                .build();
+                        return folioRepository.save(newFolio);
+                    });
+
+            FolioPosting roomChargePosting = FolioPosting.builder()
+                    .folio(folio)
+                    .postingDate(LocalDateTime.now())
+                    .source("Room")
+                    .description("Room Charge - " + room.getRoomNumber())
+                    .debitAmount(finalBill.getRoomCharges())
+                    .taxAmount(finalBill.getTaxAmount())
+                    .totalAmount(finalBill.getTotalAmount())
+                    .isDeleted(false)
+                    .build();
+            folioPostingRepository.save(roomChargePosting);
+
+            // Update Folio totals
+            folio.setTotalCharges(folio.getTotalCharges().add(roomChargePosting.getTotalAmount()));
+            folio.setBalance(folio.getBalance().add(roomChargePosting.getTotalAmount()));
+            folioRepository.save(folio);
+
             // Save money transaction if any
             if (request.getAmountToSettle() != null && request.getAmountToSettle().compareTo(BigDecimal.ZERO) > 0) {
                 Payment payment = Payment.builder()
@@ -1162,6 +1213,24 @@ public class ReservationServiceImpl implements ReservationService {
                         .createdAt(LocalDateTime.now())
                         .build();
                 paymentRepository.save(payment);
+
+                // Folio Posting for Payment
+                FolioPosting paymentPosting = FolioPosting.builder()
+                        .folio(folio)
+                        .postingDate(LocalDateTime.now())
+                        .source("Payment")
+                        .description("Payment Received - " + request.getPaymentMethod())
+                        .debitAmount(BigDecimal.ZERO)
+                        .taxAmount(BigDecimal.ZERO)
+                        .totalAmount(request.getAmountToSettle())
+                        .paidAmount(request.getAmountToSettle())
+                        .isDeleted(false)
+                        .build();
+                folioPostingRepository.save(paymentPosting);
+
+                folio.setTotalPayments(folio.getTotalPayments().add(paymentPosting.getTotalAmount()));
+                folio.setBalance(folio.getBalance().subtract(paymentPosting.getTotalAmount()));
+                folioRepository.save(folio);
 
                 // Recalculate bill status
                 BigDecimal totalPaid = paymentRepository.findByBill_Id(bill.getId()).stream()
@@ -1222,91 +1291,96 @@ public class ReservationServiceImpl implements ReservationService {
             Guest g = res.getGuest();
             Room room = b.getRoom();
 
+            Folio folio = folioRepository.findByReservation_IdAndIsDeletedFalse(res.getId()).orElse(null);
+
             List<FolioTransaction> transactions = new ArrayList<>();
             BigDecimal totalCharges = BigDecimal.ZERO;
             BigDecimal totalPayments = BigDecimal.ZERO;
+            BigDecimal currentBalance = BigDecimal.ZERO;
 
-            Optional<Bill> optBill = billRepository.findByBooking_Id(bookingId);
-            if (optBill.isPresent()) {
-                Bill bill = optBill.get();
-                totalCharges = bill.getTotalAmount();
+            if (folio != null) {
+                List<FolioPosting> postings = folioPostingRepository.findByFolio_IdAndIsDeletedFalse(folio.getId());
+                for (FolioPosting p : postings) {
+                    transactions.add(FolioTransaction.builder()
+                            .date(p.getPostingDate().toLocalDate())
+                            .description(p.getDescription())
+                            .charges(p.getDebitAmount().compareTo(BigDecimal.ZERO) > 0 ? p.getDebitAmount().add(p.getTaxAmount() != null ? p.getTaxAmount() : BigDecimal.ZERO) : null)
+                            .payments(p.getPaidAmount().compareTo(BigDecimal.ZERO) > 0 ? p.getPaidAmount() : null)
+                            .type(p.getPaidAmount().compareTo(BigDecimal.ZERO) > 0 ? "PAYMENT" : "CHARGE")
+                            .build());
+                }
+                totalCharges = folio.getTotalCharges();
+                totalPayments = folio.getTotalPayments();
+                currentBalance = folio.getBalance();
+            } else {
+                // Fallback logic for legacy data
+                Optional<Bill> optBill = billRepository.findByBooking_Id(bookingId);
+                if (optBill.isPresent()) {
+                    Bill bill = optBill.get();
+                    totalCharges = bill.getTotalAmount();
 
-                // Add Room Charges
-                transactions.add(FolioTransaction.builder()
-                        .date(bill.getBillDate() != null ? bill.getBillDate() : b.getCheckInDate())
-                        .description("Room Charge (" + room.getRoomType().getName() + ")")
-                        .charges(bill.getRoomCharges())
-                        .payments(null)
-                        .type("CHARGE")
-                        .build());
-
-                // Add GST
-                transactions.add(FolioTransaction.builder()
-                        .date(bill.getBillDate() != null ? bill.getBillDate() : b.getCheckInDate())
-                        .description("GST (18%)")
-                        .charges(bill.getTaxAmount())
-                        .payments(null)
-                        .type("CHARGE")
-                        .build());
-
-                // Add Additional Charges if present
-                if (bill.getAdditionalCharges() != null && bill.getAdditionalCharges().compareTo(BigDecimal.ZERO) > 0) {
                     transactions.add(FolioTransaction.builder()
                             .date(bill.getBillDate() != null ? bill.getBillDate() : b.getCheckInDate())
-                            .description("Additional Charges")
-                            .charges(bill.getAdditionalCharges())
+                            .description("Room Charge (" + room.getRoomType().getName() + ")")
+                            .charges(bill.getRoomCharges())
+                            .payments(null)
+                            .type("CHARGE")
+                            .build());
+
+                    transactions.add(FolioTransaction.builder()
+                            .date(bill.getBillDate() != null ? bill.getBillDate() : b.getCheckInDate())
+                            .description("GST (18%)")
+                            .charges(bill.getTaxAmount())
+                            .payments(null)
+                            .type("CHARGE")
+                            .build());
+
+                    if (bill.getAdditionalCharges() != null && bill.getAdditionalCharges().compareTo(BigDecimal.ZERO) > 0) {
+                        transactions.add(FolioTransaction.builder()
+                                .date(bill.getBillDate() != null ? bill.getBillDate() : b.getCheckInDate())
+                                .description("Additional Charges")
+                                .charges(bill.getAdditionalCharges())
+                                .payments(null)
+                                .type("CHARGE")
+                                .build());
+                    }
+
+                    List<Payment> payments = paymentRepository.findByBill_Id(bill.getId());
+                    for (Payment p : payments) {
+                        if (p.getPaymentStatus() == Payment.PaymentStatus.SUCCESS) {
+                            totalPayments = totalPayments.add(p.getAmount());
+                            transactions.add(FolioTransaction.builder()
+                                    .date(p.getPaymentDate() != null ? p.getPaymentDate() : LocalDate.now())
+                                    .description("Payment Received (" + formatPaymentMode(p.getPaymentMode()) + ")")
+                                    .charges(null)
+                                    .payments(p.getAmount())
+                                    .type("PAYMENT")
+                                    .build());
+                        }
+                    }
+                } else {
+                    BigDecimal roomCharges = b.getFinalPrice();
+                    BigDecimal taxAmount = roomCharges.multiply(new BigDecimal("0.18"));
+                    totalCharges = roomCharges.add(taxAmount);
+
+                    transactions.add(FolioTransaction.builder()
+                            .date(b.getCheckInDate())
+                            .description("Room Charge (" + room.getRoomType().getName() + ")")
+                            .charges(roomCharges)
+                            .payments(null)
+                            .type("CHARGE")
+                            .build());
+
+                    transactions.add(FolioTransaction.builder()
+                            .date(b.getCheckInDate())
+                            .description("GST (18%)")
+                            .charges(taxAmount)
                             .payments(null)
                             .type("CHARGE")
                             .build());
                 }
-
-                // Add payments
-                List<Payment> payments = paymentRepository.findByBill_Id(bill.getId());
-                for (Payment p : payments) {
-                    if (p.getPaymentStatus() == Payment.PaymentStatus.SUCCESS) {
-                        totalPayments = totalPayments.add(p.getAmount());
-
-                        // Format description to match screenshots
-                        String desc = "Payment Received";
-                        if (p.getPaymentDate() != null && p.getPaymentDate().isBefore(b.getCheckInDate())) {
-                            desc = "Advance Payment (" + formatPaymentMode(p.getPaymentMode()) + ")";
-                        } else if (p.getNotes() != null && p.getNotes().toLowerCase().contains("advance")) {
-                            desc = "Advance Payment (" + formatPaymentMode(p.getPaymentMode()) + ")";
-                        }
-
-                        transactions.add(FolioTransaction.builder()
-                                .date(p.getPaymentDate() != null ? p.getPaymentDate() : LocalDate.now())
-                                .description(desc)
-                                .charges(null)
-                                .payments(p.getAmount())
-                                .type("PAYMENT")
-                                .build());
-                    }
-                }
-            } else {
-                // Draft Folio (Bill doesn't exist yet)
-                BigDecimal roomCharges = b.getFinalPrice();
-                BigDecimal taxAmount = roomCharges.multiply(new BigDecimal("0.18"));
-                totalCharges = roomCharges.add(taxAmount);
-
-                transactions.add(FolioTransaction.builder()
-                        .date(b.getCheckInDate())
-                        .description("Room Charge (" + room.getRoomType().getName() + ")")
-                        .charges(roomCharges)
-                        .payments(null)
-                        .type("CHARGE")
-                        .build());
-
-                transactions.add(FolioTransaction.builder()
-                        .date(b.getCheckInDate())
-                        .description("GST (18%)")
-                        .charges(taxAmount)
-                        .payments(null)
-                        .type("CHARGE")
-                        .build());
+                currentBalance = totalCharges.subtract(totalPayments);
             }
-
-            BigDecimal currentBalance = totalCharges.subtract(totalPayments);
 
             FolioResponse response = FolioResponse.builder()
                     .bookingRef("BK-" + b.getId())
@@ -1429,6 +1503,26 @@ public class ReservationServiceImpl implements ReservationService {
                         : BigDecimal.ZERO;
                 bill.setAdditionalCharges(currentAdditional.add(newAdditional));
                 bill.setTotalAmount(bill.getRoomCharges().add(bill.getTaxAmount()).add(bill.getAdditionalCharges()));
+
+                // Folio Posting for Additional Charges
+                Folio folio = folioRepository.findByReservation_IdAndIsDeletedFalse(res.getId()).orElse(null);
+                if (folio != null) {
+                    FolioPosting additionalPosting = FolioPosting.builder()
+                            .folio(folio)
+                            .postingDate(LocalDateTime.now())
+                            .source("Other")
+                            .description("Additional Charges (Late Fee/Minibar/Damage)")
+                            .debitAmount(newAdditional)
+                            .taxAmount(BigDecimal.ZERO)
+                            .totalAmount(newAdditional)
+                            .isDeleted(false)
+                            .build();
+                    folioPostingRepository.save(additionalPosting);
+
+                    folio.setTotalCharges(folio.getTotalCharges().add(newAdditional));
+                    folio.setBalance(folio.getBalance().add(newAdditional));
+                    folioRepository.save(folio);
+                }
             }
 
             // Save checkout payment if any
@@ -1443,6 +1537,27 @@ public class ReservationServiceImpl implements ReservationService {
                         .createdAt(LocalDateTime.now())
                         .build();
                 paymentRepository.save(payment);
+
+                // Folio Posting for Payment
+                Folio folio = folioRepository.findByReservation_IdAndIsDeletedFalse(res.getId()).orElse(null);
+                if (folio != null) {
+                    FolioPosting paymentPosting = FolioPosting.builder()
+                            .folio(folio)
+                            .postingDate(LocalDateTime.now())
+                            .source("Payment")
+                            .description("Checkout Payment - " + request.getPaymentMethod())
+                            .debitAmount(BigDecimal.ZERO)
+                            .taxAmount(BigDecimal.ZERO)
+                            .totalAmount(request.getAmountToCollect())
+                            .paidAmount(request.getAmountToCollect())
+                            .isDeleted(false)
+                            .build();
+                    folioPostingRepository.save(paymentPosting);
+
+                    folio.setTotalPayments(folio.getTotalPayments().add(paymentPosting.getTotalAmount()));
+                    folio.setBalance(folio.getBalance().subtract(paymentPosting.getTotalAmount()));
+                    folioRepository.save(folio);
+                }
             }
 
             // Recalculate bill status based on all payments
