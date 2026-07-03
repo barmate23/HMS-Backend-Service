@@ -17,15 +17,15 @@ import java.time.LocalDate;
  *
  * Base URL: /api/v1/reservations
  *
- * POST   /createReservation           – Create reservation + bookings
- * GET    /getReservationById/{id}     – Get single reservation
- * GET    /getAllReservations           – List all (optional ?search=)
- * GET    /getByGuest/{guestId}        – Guest's reservations
- * PUT    /cancelReservation/{id}      – Cancel reservation + bookings
- * DELETE /deleteReservation/{id}      – Soft-delete reservation
+ * POST /createReservation – Create reservation + bookings
+ * GET /getReservationById/{id} – Get single reservation
+ * GET /getAllReservations – List all (optional ?search=)
+ * GET /getByGuest/{guestId} – Guest's reservations
+ * PUT /cancelReservation/{id} – Cancel reservation + bookings
+ * DELETE /deleteReservation/{id} – Soft-delete reservation
  *
  * Base URL: /api/frontOfficeService/v1/rooms
- * GET    /available                   – Available rooms (?hotelId=&checkIn=&checkOut=)
+ * GET /available – Available rooms (?hotelId=&checkIn=&checkOut=)
  */
 @RestController
 @RequiredArgsConstructor
@@ -61,7 +61,8 @@ public class ReservationController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        return ResponseEntity.ok(reservationService.getAllReservations(searchText, statusId, fromDate, toDate, page, size));
+        return ResponseEntity
+                .ok(reservationService.getAllReservations(searchText, statusId, fromDate, toDate, page, size));
     }
 
     @GetMapping(ServiceConstants.RESERVATION_BASE_URL + ServiceConstants.GET_RESERVATIONS_BY_GUEST)
