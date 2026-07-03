@@ -156,7 +156,9 @@ public class ReservationServiceImpl implements ReservationService {
 
             Reservation savedReservation = reservationRepository.save(reservation);
 
+
             // 6. Build one Booking per room
+            BigDecimal grandTotal = BigDecimal.ZERO;
             BigDecimal ratePlanCharge = ratePlan.getPriceAdjustment() != null ? ratePlan.getPriceAdjustment()
                     : BigDecimal.ZERO;
             List<Booking> bookings = new ArrayList<>();
@@ -165,7 +167,7 @@ public class ReservationServiceImpl implements ReservationService {
                 BigDecimal ratePerNight = room.getRoomType().getBasePricePerNight();
                 BigDecimal effectiveRate = ratePerNight.add(ratePlanCharge);
                 BigDecimal total = effectiveRate.multiply(BigDecimal.valueOf(nights));
-
+                grandTotal = grandTotal.add(total);
                 Booking booking = Booking.builder()
                         .reservation(savedReservation)
                         .room(room)
@@ -208,12 +210,25 @@ public class ReservationServiceImpl implements ReservationService {
                     .status(commonMasterRepository.findAll().stream()
                             .filter(cm -> "FOLIO_STATUS".equals(cm.getCategory()) && "OPEN".equals(cm.getCode()))
                             .findFirst().orElse(null))
-                    .totalCharges(BigDecimal.ZERO)
+                    .totalCharges(grandTotal)
                     .totalPayments(BigDecimal.ZERO)
                     .balance(BigDecimal.ZERO)
                     .isDeleted(false)
                     .build();
             folioRepository.save(folio);
+
+            FolioPosting folioPosting = new FolioPosting();
+            folioPosting.setFolio(folio);
+            folioPosting.setDescription("folio for the Reservation ");
+            folioPosting.setPostingDate(LocalDateTime.now());
+            folioPosting.setSource("Reservation");
+            folioPosting.setPaidAmount(BigDecimal.ZERO);
+            folioPosting.setDebitAmount(grandTotal);
+            folioPosting.setTaxAmount(BigDecimal.ZERO);
+            folioPosting.setTotalAmount(BigDecimal.ZERO);
+            folioPosting.setIsDeleted(false);
+            folioPosting.setCreatedAt(LocalDateTime.now());
+            folioPostingRepository.save(folioPosting);
 
             log.info("Reservation created id={}, bookings={}, folio={}", savedReservation.getId(), savedBookings.size(), folio.getFolioNumber());
             return StandardResponse.success(mapToResponse(savedReservation, savedBookings),
@@ -1232,6 +1247,9 @@ public class ReservationServiceImpl implements ReservationService {
                 folio.setBalance(folio.getBalance().subtract(paymentPosting.getTotalAmount()));
                 folioRepository.save(folio);
 
+                // Update paidAmount on the original Reservation folio posting
+                updateReservationFolioPosting(folio.getId(), request.getAmountToSettle());
+
                 // Recalculate bill status
                 BigDecimal totalPaid = paymentRepository.findByBill_Id(bill.getId()).stream()
                         .filter(p -> p.getPaymentStatus() == Payment.PaymentStatus.SUCCESS)
@@ -1278,6 +1296,33 @@ public class ReservationServiceImpl implements ReservationService {
         } catch (IllegalArgumentException e) {
             return Payment.PaymentMode.CASH;
         }
+    }
+
+    /**
+     * Updates the paidAmount on the FolioPosting that was created specifically for
+     * the Reservation (source = "Reservation").
+     *
+     * This deliberately filters by source so that unrelated postings such as
+     * "Room", "POS", "Laundry", "HouseKeeping", "Other", etc. are never touched.
+     *
+     * @param folioId   ID of the folio linked to the reservation
+     * @param amountPaid the payment amount to credit on the reservation posting
+     */
+    private void updateReservationFolioPosting(Long folioId, BigDecimal amountPaid) {
+        if (folioId == null || amountPaid == null || amountPaid.compareTo(BigDecimal.ZERO) <= 0) {
+            return;
+        }
+        folioPostingRepository
+                .findTopByFolio_IdAndSourceAndIsDeletedFalse(folioId, "Reservation")
+                .ifPresent(reservationPosting -> {
+                    BigDecimal currentPaid = reservationPosting.getPaidAmount() != null
+                            ? reservationPosting.getPaidAmount()
+                            : BigDecimal.ZERO;
+                    reservationPosting.setPaidAmount(currentPaid.add(amountPaid));
+                    folioPostingRepository.save(reservationPosting);
+                    log.info("Updated Reservation folio posting id={} paidAmount={}",
+                            reservationPosting.getId(), reservationPosting.getPaidAmount());
+                });
     }
 
     @Override
@@ -1557,6 +1602,9 @@ public class ReservationServiceImpl implements ReservationService {
                     folio.setTotalPayments(folio.getTotalPayments().add(paymentPosting.getTotalAmount()));
                     folio.setBalance(folio.getBalance().subtract(paymentPosting.getTotalAmount()));
                     folioRepository.save(folio);
+
+                    // Update paidAmount on the original Reservation folio posting
+                    updateReservationFolioPosting(folio.getId(), request.getAmountToCollect());
                 }
             }
 
