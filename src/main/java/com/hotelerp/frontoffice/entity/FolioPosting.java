@@ -30,18 +30,14 @@ public class FolioPosting {
     @Column(name = "description", length = 255)
     private String description;
 
-    @Column(name = "debit_amount", precision = 10, scale = 2)
-    private BigDecimal debitAmount;
+    @Column(name = "charge_amount", precision = 10, scale = 2)
+    private BigDecimal chargeAmount;
 
     @Column(name = "tax_amount", precision = 10, scale = 2)
     private BigDecimal taxAmount;
 
     @Column(name = "total_amount", precision = 10, scale = 2)
     private BigDecimal totalAmount;
-
-    @Builder.Default
-    @Column(name = "paid_amount", precision = 10, scale = 2)
-    private BigDecimal paidAmount = BigDecimal.ZERO;
 
     @Builder.Default
     @Column(name = "is_deleted")
@@ -53,6 +49,7 @@ public class FolioPosting {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
-        if (postingDate == null) postingDate = LocalDateTime.now();
+        if (postingDate == null)
+            postingDate = LocalDateTime.now();
     }
 }
