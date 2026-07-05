@@ -222,8 +222,7 @@ public class ReservationServiceImpl implements ReservationService {
             folioPosting.setDescription("folio for the Reservation ");
             folioPosting.setPostingDate(LocalDateTime.now());
             folioPosting.setSource("Reservation");
-            folioPosting.setPaidAmount(BigDecimal.ZERO);
-            folioPosting.setDebitAmount(grandTotal);
+            folioPosting.setChargeAmount(grandTotal);
             folioPosting.setTaxAmount(BigDecimal.ZERO);
             folioPosting.setTotalAmount(BigDecimal.ZERO);
             folioPosting.setIsDeleted(false);
@@ -1192,29 +1191,13 @@ public class ReservationServiceImpl implements ReservationService {
                                         .filter(cm -> "FOLIO_STATUS".equals(cm.getCategory()) && "OPEN".equals(cm.getCode()))
                                         .findFirst().orElse(null))
                                 .totalCharges(BigDecimal.ZERO)
-                                .totalPayments(BigDecimal.ZERO)
-                                .balance(BigDecimal.ZERO)
+                                .totalPayments(request.getAmountToSettle())
                                 .isDeleted(false)
                                 .build();
                         return folioRepository.save(newFolio);
                     });
 
-            FolioPosting roomChargePosting = FolioPosting.builder()
-                    .folio(folio)
-                    .postingDate(LocalDateTime.now())
-                    .source("Room")
-                    .description("Room Charge - " + room.getRoomNumber())
-                    .debitAmount(finalBill.getRoomCharges())
-                    .taxAmount(finalBill.getTaxAmount())
-                    .totalAmount(finalBill.getTotalAmount())
-                    .isDeleted(false)
-                    .build();
-            folioPostingRepository.save(roomChargePosting);
 
-            // Update Folio totals
-            folio.setTotalCharges(folio.getTotalCharges().add(roomChargePosting.getTotalAmount()));
-            folio.setBalance(folio.getBalance().add(roomChargePosting.getTotalAmount()));
-            folioRepository.save(folio);
 
             // Save money transaction if any
             if (request.getAmountToSettle() != null && request.getAmountToSettle().compareTo(BigDecimal.ZERO) > 0) {
@@ -1235,10 +1218,9 @@ public class ReservationServiceImpl implements ReservationService {
                         .postingDate(LocalDateTime.now())
                         .source("Payment")
                         .description("Payment Received - " + request.getPaymentMethod())
-                        .debitAmount(BigDecimal.ZERO)
+                        .chargeAmount(BigDecimal.ZERO)
                         .taxAmount(BigDecimal.ZERO)
                         .totalAmount(request.getAmountToSettle())
-                        .paidAmount(request.getAmountToSettle())
                         .isDeleted(false)
                         .build();
                 folioPostingRepository.save(paymentPosting);
@@ -1248,7 +1230,7 @@ public class ReservationServiceImpl implements ReservationService {
                 folioRepository.save(folio);
 
                 // Update paidAmount on the original Reservation folio posting
-                updateReservationFolioPosting(folio.getId(), request.getAmountToSettle());
+//                updateReservationFolioPosting(folio.getId(), request.getAmountToSettle());
 
                 // Recalculate bill status
                 BigDecimal totalPaid = paymentRepository.findByBill_Id(bill.getId()).stream()
@@ -1298,32 +1280,6 @@ public class ReservationServiceImpl implements ReservationService {
         }
     }
 
-    /**
-     * Updates the paidAmount on the FolioPosting that was created specifically for
-     * the Reservation (source = "Reservation").
-     *
-     * This deliberately filters by source so that unrelated postings such as
-     * "Room", "POS", "Laundry", "HouseKeeping", "Other", etc. are never touched.
-     *
-     * @param folioId   ID of the folio linked to the reservation
-     * @param amountPaid the payment amount to credit on the reservation posting
-     */
-    private void updateReservationFolioPosting(Long folioId, BigDecimal amountPaid) {
-        if (folioId == null || amountPaid == null || amountPaid.compareTo(BigDecimal.ZERO) <= 0) {
-            return;
-        }
-        folioPostingRepository
-                .findTopByFolio_IdAndSourceAndIsDeletedFalse(folioId, "Reservation")
-                .ifPresent(reservationPosting -> {
-                    BigDecimal currentPaid = reservationPosting.getPaidAmount() != null
-                            ? reservationPosting.getPaidAmount()
-                            : BigDecimal.ZERO;
-                    reservationPosting.setPaidAmount(currentPaid.add(amountPaid));
-                    folioPostingRepository.save(reservationPosting);
-                    log.info("Updated Reservation folio posting id={} paidAmount={}",
-                            reservationPosting.getId(), reservationPosting.getPaidAmount());
-                });
-    }
 
     @Override
     @Transactional(readOnly = true)
@@ -1349,9 +1305,7 @@ public class ReservationServiceImpl implements ReservationService {
                     transactions.add(FolioTransaction.builder()
                             .date(p.getPostingDate().toLocalDate())
                             .description(p.getDescription())
-                            .charges(p.getDebitAmount().compareTo(BigDecimal.ZERO) > 0 ? p.getDebitAmount().add(p.getTaxAmount() != null ? p.getTaxAmount() : BigDecimal.ZERO) : null)
-                            .payments(p.getPaidAmount().compareTo(BigDecimal.ZERO) > 0 ? p.getPaidAmount() : null)
-                            .type(p.getPaidAmount().compareTo(BigDecimal.ZERO) > 0 ? "PAYMENT" : "CHARGE")
+                            .charges(p.getChargeAmount().compareTo(BigDecimal.ZERO) > 0 ? p.getChargeAmount().add(p.getTaxAmount() != null ? p.getTaxAmount() : BigDecimal.ZERO) : null)
                             .build());
                 }
                 totalCharges = folio.getTotalCharges();
@@ -1557,7 +1511,6 @@ public class ReservationServiceImpl implements ReservationService {
                             .postingDate(LocalDateTime.now())
                             .source("Other")
                             .description("Additional Charges (Late Fee/Minibar/Damage)")
-                            .debitAmount(newAdditional)
                             .taxAmount(BigDecimal.ZERO)
                             .totalAmount(newAdditional)
                             .isDeleted(false)
@@ -1570,43 +1523,43 @@ public class ReservationServiceImpl implements ReservationService {
                 }
             }
 
-            // Save checkout payment if any
-            if (request.getAmountToCollect() != null && request.getAmountToCollect().compareTo(BigDecimal.ZERO) > 0) {
-                Payment payment = Payment.builder()
-                        .bill(bill)
-                        .amount(request.getAmountToCollect())
-                        .paymentMode(mapPaymentMode(request.getPaymentMethod()))
-                        .paymentDate(LocalDate.now())
-                        .transactionId("TXN-" + System.currentTimeMillis() + "-" + (int) (Math.random() * 1000))
-                        .paymentStatus(Payment.PaymentStatus.SUCCESS)
-                        .createdAt(LocalDateTime.now())
-                        .build();
-                paymentRepository.save(payment);
-
-                // Folio Posting for Payment
-                Folio folio = folioRepository.findByReservation_IdAndIsDeletedFalse(res.getId()).orElse(null);
-                if (folio != null) {
-                    FolioPosting paymentPosting = FolioPosting.builder()
-                            .folio(folio)
-                            .postingDate(LocalDateTime.now())
-                            .source("Payment")
-                            .description("Checkout Payment - " + request.getPaymentMethod())
-                            .debitAmount(BigDecimal.ZERO)
-                            .taxAmount(BigDecimal.ZERO)
-                            .totalAmount(request.getAmountToCollect())
-                            .paidAmount(request.getAmountToCollect())
-                            .isDeleted(false)
-                            .build();
-                    folioPostingRepository.save(paymentPosting);
-
-                    folio.setTotalPayments(folio.getTotalPayments().add(paymentPosting.getTotalAmount()));
-                    folio.setBalance(folio.getBalance().subtract(paymentPosting.getTotalAmount()));
-                    folioRepository.save(folio);
-
-                    // Update paidAmount on the original Reservation folio posting
-                    updateReservationFolioPosting(folio.getId(), request.getAmountToCollect());
-                }
-            }
+//            // Save checkout payment if any
+//            if (request.getAmountToCollect() != null && request.getAmountToCollect().compareTo(BigDecimal.ZERO) > 0) {
+//                Payment payment = Payment.builder()
+//                        .bill(bill)
+//                        .amount(request.getAmountToCollect())
+//                        .paymentMode(mapPaymentMode(request.getPaymentMethod()))
+//                        .paymentDate(LocalDate.now())
+//                        .transactionId("TXN-" + System.currentTimeMillis() + "-" + (int) (Math.random() * 1000))
+//                        .paymentStatus(Payment.PaymentStatus.SUCCESS)
+//                        .createdAt(LocalDateTime.now())
+//                        .build();
+//                paymentRepository.save(payment);
+//
+////                // Folio Posting for Payment
+////                Folio folio = folioRepository.findByReservation_IdAndIsDeletedFalse(res.getId()).orElse(null);
+////                if (folio != null) {
+////                    FolioPosting paymentPosting = FolioPosting.builder()
+////                            .folio(folio)
+////                            .postingDate(LocalDateTime.now())
+////                            .source("Payment")
+////                            .description("Checkout Payment - " + request.getPaymentMethod())
+////                            .debitAmount(BigDecimal.ZERO)
+////                            .taxAmount(BigDecimal.ZERO)
+////                            .totalAmount(request.getAmountToCollect())
+////                            .paidAmount(request.getAmountToCollect())
+////                            .isDeleted(false)
+////                            .build();
+////                    folioPostingRepository.save(paymentPosting);
+////
+////                    folio.setTotalPayments(folio.getTotalPayments().add(paymentPosting.getTotalAmount()));
+////                    folio.setBalance(folio.getBalance().subtract(paymentPosting.getTotalAmount()));
+////                    folioRepository.save(folio);
+//
+//                    // Update paidAmount on the original Reservation folio posting
+////                    updateReservationFolioPosting(folio.getId(), request.getAmountToCollect());
+//                }
+//            }
 
             // Recalculate bill status based on all payments
             BigDecimal totalPaid = paymentRepository.findByBill_Id(bill.getId()).stream()
