@@ -1152,7 +1152,7 @@ public class ReservationServiceImpl implements ReservationService {
                         return "CHECKED_IN".equals(code) || "CHECKED_OUT".equals(code);
                     });
             if (allCheckedIn) {
-                res.setReservationStatus(getStatusByCode("RESERVATION_STATUS", "CHECKED_IN"));
+                res.setReservationStatus(getStatusByCode("BOOKING_STATUS", "CHECKED_IN"));
                 res.setUpdatedAt(LocalDateTime.now());
                 reservationRepository.save(res);
             }
@@ -1198,7 +1198,7 @@ public class ReservationServiceImpl implements ReservationService {
                     });
 
             folio.setTotalPayments(request.getAmountToSettle());
-
+            folioRepository.save(folio);
             // Save money transaction if any
             if (request.getAmountToSettle() != null && request.getAmountToSettle().compareTo(BigDecimal.ZERO) > 0) {
                 Payment payment = Payment.builder()
@@ -1462,7 +1462,7 @@ public class ReservationServiceImpl implements ReservationService {
                         return "CHECKED_OUT".equals(code);
                     });
             if (allCheckedOut) {
-                res.setReservationStatus(getStatusByCode("RESERVATION_STATUS", "CHECKED_OUT"));
+                res.setReservationStatus(getStatusByCode("BOOKING_STATUS", "CHECKED_OUT"));
                 res.setUpdatedAt(LocalDateTime.now());
                 reservationRepository.save(res);
             }
