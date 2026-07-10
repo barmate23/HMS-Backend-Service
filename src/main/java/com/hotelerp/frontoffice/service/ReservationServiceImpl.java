@@ -1151,11 +1151,6 @@ public class ReservationServiceImpl implements ReservationService {
                         String code = bk.getBookingStatus() != null ? bk.getBookingStatus().getCode() : "";
                         return "CHECKED_IN".equals(code) || "CHECKED_OUT".equals(code);
                     });
-            if (allCheckedIn) {
-                res.setReservationStatus(getStatusByCode("BOOKING_STATUS", "CHECKED_IN"));
-                res.setUpdatedAt(LocalDateTime.now());
-                reservationRepository.save(res);
-            }
 
             // Create or get Bill
             Bill bill = billRepository.findByBooking_Id(b.getId()).orElse(null);
@@ -1197,8 +1192,6 @@ public class ReservationServiceImpl implements ReservationService {
                         return folioRepository.save(newFolio);
                     });
 
-            folio.setTotalPayments(request.getAmountToSettle());
-            folioRepository.save(folio);
             // Save money transaction if any
             if (request.getAmountToSettle() != null && request.getAmountToSettle().compareTo(BigDecimal.ZERO) > 0) {
                 Payment payment = Payment.builder()
