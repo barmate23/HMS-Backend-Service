@@ -1197,7 +1197,7 @@ public class ReservationServiceImpl implements ReservationService {
                         return folioRepository.save(newFolio);
                     });
 
-
+            folio.setTotalPayments(request.getAmountToSettle());
 
             // Save money transaction if any
             if (request.getAmountToSettle() != null && request.getAmountToSettle().compareTo(BigDecimal.ZERO) > 0) {
