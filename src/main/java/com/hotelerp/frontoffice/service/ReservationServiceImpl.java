@@ -15,6 +15,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import jakarta.persistence.criteria.Predicate;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -68,14 +69,8 @@ public class ReservationServiceImpl implements ReservationService {
                 }
                 if (guestRepository.existsByEmailAndIsDeletedFalse(gd.getEmail())) {
                     // Guest already exists — use the existing record instead of failing
-                    guest = guestRepository.searchGuests(gd.getEmail())
-                            .stream().findFirst()
-                            .orElse(null);
-                    if (guest == null) {
-                        return StandardResponse.error("Duplicate email and guest lookup failed",
-                                "DUPLICATE_EMAIL", "guestDetails.email", null);
-                    }
-                    log.info("Inline guest email already exists; re-using guestId={}", guest.getId());
+                    return StandardResponse.error("Duplicate email Id Already Exist",
+                            "DUPLICATE_EMAIL", "guestDetails.email", null);
                 } else {
                     guest = buildInlineGuest(gd);
                     guest = guestRepository.save(guest);
@@ -126,7 +121,7 @@ public class ReservationServiceImpl implements ReservationService {
             if (ratePlan == null) {
                 return StandardResponse.error("Rate plan not found", "RATE_PLAN_NOT_FOUND", "ratePlanId", null);
             }
-           CommonMaster bookingStatus = commonMasterRepository.findByValue("CONFIRMED");
+            CommonMaster bookingStatus = commonMasterRepository.findByValue("CONFIRMED");
 
             Reservation reservation = Reservation.builder()
                     .guest(guest)
@@ -155,7 +150,6 @@ public class ReservationServiceImpl implements ReservationService {
                     .build();
 
             Reservation savedReservation = reservationRepository.save(reservation);
-
 
             // 6. Build one Booking per room
             BigDecimal grandTotal = BigDecimal.ZERO;
@@ -462,7 +456,7 @@ public class ReservationServiceImpl implements ReservationService {
     @Override
     @Transactional(readOnly = true)
     public StandardResponse<?> getAllReservations(String searchText, Long statusId,
-            LocalDate fromDate, LocalDate toDate, int page, int size) {
+                                                  LocalDate fromDate, LocalDate toDate, int page, int size) {
         log.info("Fetching all reservations, search={}, statusId={}, from={}, to={}, page={}, size={}",
                 searchText, statusId, fromDate, toDate, page, size);
         try {
@@ -642,7 +636,10 @@ public class ReservationServiceImpl implements ReservationService {
     // ── Mappers ────────────────────────────────────────────────────────────
 
     // ── Listing mapper ────────────────────────────────────────────────────
-    /** Maps to slim listing DTO — only what the listing columns show. */
+
+    /**
+     * Maps to slim listing DTO — only what the listing columns show.
+     */
     private ReservationResponse mapToResponse(Reservation r, List<Booking> bookings) {
         if (bookings == null) {
             bookings = bookingRepository.findByReservation_IdAndIsDeletedFalse(r.getId());
@@ -694,7 +691,10 @@ public class ReservationServiceImpl implements ReservationService {
     }
 
     // ── Detail mapper ─────────────────────────────────────────────────────
-    /** Maps to full detail DTO — used by getReservationById only. */
+
+    /**
+     * Maps to full detail DTO — used by getReservationById only.
+     */
     private ReservationDetailResponse mapToDetailResponse(Reservation r, List<Booking> bookings) {
         if (bookings == null) {
             bookings = bookingRepository.findByReservation_IdAndIsDeletedFalse(r.getId());
@@ -788,7 +788,9 @@ public class ReservationServiceImpl implements ReservationService {
                 .build();
     }
 
-    /** Extract up to 2 uppercase initials from first + last name. */
+    /**
+     * Extract up to 2 uppercase initials from first + last name.
+     */
     private String extractInitials(String firstName, String lastName) {
         StringBuilder sb = new StringBuilder();
         if (firstName != null && !firstName.isBlank())
@@ -798,7 +800,9 @@ public class ReservationServiceImpl implements ReservationService {
         return sb.toString().toUpperCase();
     }
 
-    /** Resolve guest badge: VIP → REPEAT (>1 reservation) → NEW */
+    /**
+     * Resolve guest badge: VIP → REPEAT (>1 reservation) → NEW
+     */
     private String resolveGuestBadge(Guest g) {
         if (Boolean.TRUE.equals(g.getIsVip()))
             return "VIP";
@@ -883,7 +887,7 @@ public class ReservationServiceImpl implements ReservationService {
         try {
             LocalDate targetDate = date != null ? date : LocalDate.now();
             Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "id")); // Or sort by time if
-                                                                                               // available
+            // available
 
             Specification<Booking> spec = (root, query, cb) -> {
                 List<Predicate> predicates = new ArrayList<>();
