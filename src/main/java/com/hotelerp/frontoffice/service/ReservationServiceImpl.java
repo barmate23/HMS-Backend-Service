@@ -40,6 +40,7 @@ public class ReservationServiceImpl implements ReservationService {
     private final CommonMasterRepository commonMasterRepository;
     private final FolioRepository folioRepository;
     private final FolioPostingRepository folioPostingRepository;
+    private final AccompanyingGuestRepository accompanyingGuestRepository;
 
     // ── Create ─────────────────────────────────────────────────────────────
 
@@ -223,6 +224,26 @@ public class ReservationServiceImpl implements ReservationService {
             folioPosting.setCreatedAt(LocalDateTime.now());
             folioPostingRepository.save(folioPosting);
 
+            // 8. Save Accompanying Guests (if any)
+            if (req.getAccompanyingGuests() != null && !req.getAccompanyingGuests().isEmpty()) {
+                List<AccompanyingGuest> accompanyingGuests = req.getAccompanyingGuests().stream()
+                        .map(ag -> AccompanyingGuest.builder()
+                                .reservation(savedReservation)
+                                .title(ag.getTitle())
+                                .fullName(ag.getFullName())
+                                .gender(ag.getGender())
+                                .dateOfBirth(ag.getDateOfBirth())
+                                .relationship(ag.getRelationship())
+                                .idProofType(ag.getIdProofType())
+                                .idNumber(ag.getIdNumber())
+                                .isDeleted(false)
+                                .build())
+                        .collect(Collectors.toList());
+                accompanyingGuestRepository.saveAll(accompanyingGuests);
+                log.info("Saved {} accompanying guests for reservation id={}",
+                        accompanyingGuests.size(), savedReservation.getId());
+            }
+
             log.info("Reservation created id={}, bookings={}, folio={}", savedReservation.getId(), savedBookings.size(), folio.getFolioNumber());
             return StandardResponse.success(mapToResponse(savedReservation, savedBookings),
                     "Reservation created successfully");
@@ -381,6 +402,31 @@ public class ReservationServiceImpl implements ReservationService {
                         .createdAt(LocalDateTime.now())
                         .build();
                 roomAuditRepository.save(audit);
+            }
+
+            // Update Accompanying Guests: soft-delete existing, then save new list
+            List<AccompanyingGuest> existingAccompanying =
+                    accompanyingGuestRepository.findByReservation_IdAndIsDeletedFalse(id);
+            existingAccompanying.forEach(ag -> ag.setIsDeleted(true));
+            accompanyingGuestRepository.saveAll(existingAccompanying);
+
+            if (req.getAccompanyingGuests() != null && !req.getAccompanyingGuests().isEmpty()) {
+                List<AccompanyingGuest> newAccompanying = req.getAccompanyingGuests().stream()
+                        .map(ag -> AccompanyingGuest.builder()
+                                .reservation(reservation)
+                                .title(ag.getTitle())
+                                .fullName(ag.getFullName())
+                                .gender(ag.getGender())
+                                .dateOfBirth(ag.getDateOfBirth())
+                                .relationship(ag.getRelationship())
+                                .idProofType(ag.getIdProofType())
+                                .idNumber(ag.getIdNumber())
+                                .isDeleted(false)
+                                .build())
+                        .collect(Collectors.toList());
+                accompanyingGuestRepository.saveAll(newAccompanying);
+                log.info("Updated {} accompanying guests for reservation id={}",
+                        newAccompanying.size(), id);
             }
 
             return StandardResponse.success(mapToResponse(reservation, savedBookings),
@@ -783,6 +829,11 @@ public class ReservationServiceImpl implements ReservationService {
                 .paidAmount(paidAmount)
                 .specialRequests(r.getSpecialRequests())
                 .notes(r.getNotes())
+                .accompanyingGuests(
+                        accompanyingGuestRepository.findByReservation_IdAndIsDeletedFalse(r.getId())
+                                .stream()
+                                .map(this::mapAccompanyingGuestToResponse)
+                                .collect(Collectors.toList()))
                 .createdAt(r.getCreatedAt())
                 .updatedAt(r.getUpdatedAt())
                 .build();
@@ -831,6 +882,19 @@ public class ReservationServiceImpl implements ReservationService {
                 .bookingStatus(b.getBookingStatus() != null ? b.getBookingStatus().getValue() : null)
                 .createdAt(b.getCreatedAt())
                 .updatedAt(b.getUpdatedAt())
+                .build();
+    }
+
+    private AccompanyingGuestResponse mapAccompanyingGuestToResponse(AccompanyingGuest ag) {
+        return AccompanyingGuestResponse.builder()
+                .id(ag.getId())
+                .title(ag.getTitle())
+                .fullName(ag.getFullName())
+                .gender(ag.getGender())
+                .dateOfBirth(ag.getDateOfBirth())
+                .relationship(ag.getRelationship())
+                .idProofType(ag.getIdProofType())
+                .idNumber(ag.getIdNumber())
                 .build();
     }
 

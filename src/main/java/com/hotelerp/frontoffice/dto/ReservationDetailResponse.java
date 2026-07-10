@@ -87,6 +87,9 @@ public class ReservationDetailResponse {
     private String specialRequests;
     private String notes;
 
+    // ── Accompanying Members ───────────────────────────────────────────────
+    private List<AccompanyingGuestResponse> accompanyingGuests;
+
     // ── Audit ─────────────────────────────────────────────────────────────
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

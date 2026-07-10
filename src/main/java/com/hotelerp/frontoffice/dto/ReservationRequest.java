@@ -1,6 +1,5 @@
 package com.hotelerp.frontoffice.dto;
 
-import com.hotelerp.frontoffice.entity.Reservation;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -94,4 +93,13 @@ public class ReservationRequest {
 
     private String specialRequests;
     private String notes;
+
+    // ── Accompanying Members (Optional) ───────────────────────────────────
+
+    /**
+     * List of additional guests accompanying the primary guest.
+     * Optional — can be null or empty.
+     */
+    @Valid
+    private List<AccompanyingGuestRequest> accompanyingGuests;
 }
