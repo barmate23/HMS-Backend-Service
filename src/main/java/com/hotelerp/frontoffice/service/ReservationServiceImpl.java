@@ -20,6 +20,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -955,9 +956,13 @@ public class ReservationServiceImpl implements ReservationService {
         log.info("Fetching listing date={}, search={}, checkout={}, page={}, size={}", date, searchText, checkout, page,
                 size);
         try {
-            LocalDate targetDate = date != null ? date : LocalDate.now();
-            Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "id")); // Or sort by time if
-            // available
+            // Resolve date in IST (Asia/Kolkata = UTC+5:30)
+            ZoneId IST = ZoneId.of("Asia/Kolkata");
+            LocalDate targetDate = date != null ? date : LocalDate.now(IST);
+
+            // Sort by ETA (checkInTime for arrivals, checkOutTime for departures) ascending
+            String sortField = checkout ? "checkOutTime" : "checkInTime";
+            Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, sortField));
 
             Specification<Booking> spec = (root, query, cb) -> {
                 List<Predicate> predicates = new ArrayList<>();
