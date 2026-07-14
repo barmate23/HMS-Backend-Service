@@ -65,7 +65,8 @@ public class ReservationServiceImpl implements ReservationService {
             } else if (req.getGuestDetails() != null) {
                 // ── Create Guest flow ─────────────────────────────────────
                 GuestRequest gd = req.getGuestDetails();
-                Optional<Guest> guestOptional = guestRepository.findByFirstNameAndLastNameAndIsDeletedFalse(gd.getFirstName(), gd.getLastName());
+                Optional<Guest> guestOptional = guestRepository
+                        .findByFirstNameAndLastNameAndIsDeletedFalse(gd.getFirstName(), gd.getLastName());
                 if (guestOptional.isPresent()) {
                     guest = guestOptional.get();
                 } else {
@@ -83,7 +84,6 @@ public class ReservationServiceImpl implements ReservationService {
                         log.info("Inline guest created with ID={}", guest.getId());
                     }
                 }
-
 
             } else {
                 return StandardResponse.error(
@@ -251,7 +251,8 @@ public class ReservationServiceImpl implements ReservationService {
                         accompanyingGuests.size(), savedReservation.getId());
             }
 
-            log.info("Reservation created id={}, bookings={}, folio={}", savedReservation.getId(), savedBookings.size(), folio.getFolioNumber());
+            log.info("Reservation created id={}, bookings={}, folio={}", savedReservation.getId(), savedBookings.size(),
+                    folio.getFolioNumber());
             return StandardResponse.success(mapToResponse(savedReservation, savedBookings),
                     "Reservation created successfully");
 
@@ -412,8 +413,8 @@ public class ReservationServiceImpl implements ReservationService {
             }
 
             // Update Accompanying Guests: soft-delete existing, then save new list
-            List<AccompanyingGuest> existingAccompanying =
-                    accompanyingGuestRepository.findByReservation_IdAndIsDeletedFalse(id);
+            List<AccompanyingGuest> existingAccompanying = accompanyingGuestRepository
+                    .findByReservation_IdAndIsDeletedFalse(id);
             existingAccompanying.forEach(ag -> ag.setIsDeleted(true));
             accompanyingGuestRepository.saveAll(existingAccompanying);
 
@@ -509,7 +510,7 @@ public class ReservationServiceImpl implements ReservationService {
     @Override
     @Transactional(readOnly = true)
     public StandardResponse<?> getAllReservations(String searchText, Long statusId,
-                                                  LocalDate fromDate, LocalDate toDate, int page, int size) {
+            LocalDate fromDate, LocalDate toDate, int page, int size) {
         log.info("Fetching all reservations, search={}, statusId={}, from={}, to={}, page={}, size={}",
                 searchText, statusId, fromDate, toDate, page, size);
         try {
@@ -961,7 +962,7 @@ public class ReservationServiceImpl implements ReservationService {
             LocalDate targetDate = date != null ? date : LocalDate.now(IST);
 
             // Sort by ETA (checkInTime for arrivals, checkOutTime for departures) ascending
-            String sortField = checkout ? "checkOutTime" : "checkInTime";
+            String sortField = checkout ? "checkOutDate" : "checkInDate";
             Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, sortField));
 
             Specification<Booking> spec = (root, query, cb) -> {
@@ -1262,7 +1263,8 @@ public class ReservationServiceImpl implements ReservationService {
                                 .reservation(res)
                                 .folioNumber("FOL-" + res.getId() + "-" + (System.currentTimeMillis() % 10000))
                                 .status(commonMasterRepository.findAll().stream()
-                                        .filter(cm -> "FOLIO_STATUS".equals(cm.getCategory()) && "OPEN".equals(cm.getCode()))
+                                        .filter(cm -> "FOLIO_STATUS".equals(cm.getCategory())
+                                                && "OPEN".equals(cm.getCode()))
                                         .findFirst().orElse(null))
                                 .totalCharges(BigDecimal.ZERO)
                                 .totalPayments(request.getAmountToSettle())
@@ -1302,7 +1304,7 @@ public class ReservationServiceImpl implements ReservationService {
                 folioRepository.save(folio);
 
                 // Update paidAmount on the original Reservation folio posting
-//                updateReservationFolioPosting(folio.getId(), request.getAmountToSettle());
+                // updateReservationFolioPosting(folio.getId(), request.getAmountToSettle());
 
                 // Recalculate bill status
                 BigDecimal totalPaid = paymentRepository.findByBill_Id(bill.getId()).stream()
@@ -1352,7 +1354,6 @@ public class ReservationServiceImpl implements ReservationService {
         }
     }
 
-
     @Override
     @Transactional(readOnly = true)
     public StandardResponse<?> getFolio(Long bookingId) {
@@ -1377,7 +1378,11 @@ public class ReservationServiceImpl implements ReservationService {
                     transactions.add(FolioTransaction.builder()
                             .date(p.getPostingDate().toLocalDate())
                             .description(p.getDescription())
-                            .charges(p.getChargeAmount().compareTo(BigDecimal.ZERO) > 0 ? p.getChargeAmount().add(p.getTaxAmount() != null ? p.getTaxAmount() : BigDecimal.ZERO) : null)
+                            .charges(
+                                    p.getChargeAmount().compareTo(BigDecimal.ZERO) > 0
+                                            ? p.getChargeAmount()
+                                                    .add(p.getTaxAmount() != null ? p.getTaxAmount() : BigDecimal.ZERO)
+                                            : null)
                             .build());
                 }
                 totalCharges = folio.getTotalCharges();
@@ -1406,7 +1411,8 @@ public class ReservationServiceImpl implements ReservationService {
                             .type("CHARGE")
                             .build());
 
-                    if (bill.getAdditionalCharges() != null && bill.getAdditionalCharges().compareTo(BigDecimal.ZERO) > 0) {
+                    if (bill.getAdditionalCharges() != null
+                            && bill.getAdditionalCharges().compareTo(BigDecimal.ZERO) > 0) {
                         transactions.add(FolioTransaction.builder()
                                 .date(bill.getBillDate() != null ? bill.getBillDate() : b.getCheckInDate())
                                 .description("Additional Charges")
@@ -1595,43 +1601,46 @@ public class ReservationServiceImpl implements ReservationService {
                 }
             }
 
-//            // Save checkout payment if any
-//            if (request.getAmountToCollect() != null && request.getAmountToCollect().compareTo(BigDecimal.ZERO) > 0) {
-//                Payment payment = Payment.builder()
-//                        .bill(bill)
-//                        .amount(request.getAmountToCollect())
-//                        .paymentMode(mapPaymentMode(request.getPaymentMethod()))
-//                        .paymentDate(LocalDate.now())
-//                        .transactionId("TXN-" + System.currentTimeMillis() + "-" + (int) (Math.random() * 1000))
-//                        .paymentStatus(Payment.PaymentStatus.SUCCESS)
-//                        .createdAt(LocalDateTime.now())
-//                        .build();
-//                paymentRepository.save(payment);
-//
-////                // Folio Posting for Payment
-////                Folio folio = folioRepository.findByReservation_IdAndIsDeletedFalse(res.getId()).orElse(null);
-////                if (folio != null) {
-////                    FolioPosting paymentPosting = FolioPosting.builder()
-////                            .folio(folio)
-////                            .postingDate(LocalDateTime.now())
-////                            .source("Payment")
-////                            .description("Checkout Payment - " + request.getPaymentMethod())
-////                            .debitAmount(BigDecimal.ZERO)
-////                            .taxAmount(BigDecimal.ZERO)
-////                            .totalAmount(request.getAmountToCollect())
-////                            .paidAmount(request.getAmountToCollect())
-////                            .isDeleted(false)
-////                            .build();
-////                    folioPostingRepository.save(paymentPosting);
-////
-////                    folio.setTotalPayments(folio.getTotalPayments().add(paymentPosting.getTotalAmount()));
-////                    folio.setBalance(folio.getBalance().subtract(paymentPosting.getTotalAmount()));
-////                    folioRepository.save(folio);
-//
-//                    // Update paidAmount on the original Reservation folio posting
-////                    updateReservationFolioPosting(folio.getId(), request.getAmountToCollect());
-//                }
-//            }
+            // // Save checkout payment if any
+            // if (request.getAmountToCollect() != null &&
+            // request.getAmountToCollect().compareTo(BigDecimal.ZERO) > 0) {
+            // Payment payment = Payment.builder()
+            // .bill(bill)
+            // .amount(request.getAmountToCollect())
+            // .paymentMode(mapPaymentMode(request.getPaymentMethod()))
+            // .paymentDate(LocalDate.now())
+            // .transactionId("TXN-" + System.currentTimeMillis() + "-" + (int)
+            // (Math.random() * 1000))
+            // .paymentStatus(Payment.PaymentStatus.SUCCESS)
+            // .createdAt(LocalDateTime.now())
+            // .build();
+            // paymentRepository.save(payment);
+            //
+            //// // Folio Posting for Payment
+            //// Folio folio =
+            // folioRepository.findByReservation_IdAndIsDeletedFalse(res.getId()).orElse(null);
+            //// if (folio != null) {
+            //// FolioPosting paymentPosting = FolioPosting.builder()
+            //// .folio(folio)
+            //// .postingDate(LocalDateTime.now())
+            //// .source("Payment")
+            //// .description("Checkout Payment - " + request.getPaymentMethod())
+            //// .debitAmount(BigDecimal.ZERO)
+            //// .taxAmount(BigDecimal.ZERO)
+            //// .totalAmount(request.getAmountToCollect())
+            //// .paidAmount(request.getAmountToCollect())
+            //// .isDeleted(false)
+            //// .build();
+            //// folioPostingRepository.save(paymentPosting);
+            ////
+            //// folio.setTotalPayments(folio.getTotalPayments().add(paymentPosting.getTotalAmount()));
+            //// folio.setBalance(folio.getBalance().subtract(paymentPosting.getTotalAmount()));
+            //// folioRepository.save(folio);
+            //
+            // // Update paidAmount on the original Reservation folio posting
+            //// updateReservationFolioPosting(folio.getId(), request.getAmountToCollect());
+            // }
+            // }
 
             // Recalculate bill status based on all payments
             BigDecimal totalPaid = paymentRepository.findByBill_Id(bill.getId()).stream()
@@ -1832,19 +1841,23 @@ public class ReservationServiceImpl implements ReservationService {
                     .filter(room -> Boolean.TRUE.equals(room.getIsActive()))
                     .filter(room -> !Boolean.TRUE.equals(room.getIsDeleted()))
                     .sorted(Comparator
-                            .comparing((Room room) -> room.getFloor() != null ? room.getFloor().getFloorNumber() : "", Comparator.nullsLast(String::compareTo))
+                            .comparing((Room room) -> room.getFloor() != null ? room.getFloor().getFloorNumber() : "",
+                                    Comparator.nullsLast(String::compareTo))
                             .thenComparing(Room::getRoomNumber, Comparator.nullsLast(String::compareTo)))
                     .toList();
 
-            List<Booking> activeBookings = bookingRepository.findBookingsInRange(businessDate, businessDate.plusDays(1)).stream()
+            List<Booking> activeBookings = bookingRepository.findBookingsInRange(businessDate, businessDate.plusDays(1))
+                    .stream()
                     .filter(booking -> !Boolean.TRUE.equals(booking.getIsDeleted()))
-                    .filter(booking -> booking.getReservation() != null && !Boolean.TRUE.equals(booking.getReservation().getIsDeleted()))
+                    .filter(booking -> booking.getReservation() != null
+                            && !Boolean.TRUE.equals(booking.getReservation().getIsDeleted()))
                     .filter(booking -> !isCancelledStatus(booking.getBookingStatus()))
                     .toList();
 
             Map<Long, Booking> bookingByRoom = activeBookings.stream()
                     .filter(booking -> booking.getRoom() != null && booking.getRoom().getId() != null)
-                    .collect(Collectors.toMap(booking -> booking.getRoom().getId(), booking -> booking, (first, second) -> first));
+                    .collect(Collectors.toMap(booking -> booking.getRoom().getId(), booking -> booking,
+                            (first, second) -> first));
 
             List<FrontOfficeDashboardResponse.RoomCard> roomCards = rooms.stream()
                     .map(room -> mapFrontOfficeRoomCard(room, bookingByRoom.get(room.getId())))
@@ -1863,7 +1876,8 @@ public class ReservationServiceImpl implements ReservationService {
             FrontOfficeDashboardResponse.Summary summary = FrontOfficeDashboardResponse.Summary.builder()
                     .totalRooms(roomCards.size())
                     .totalBookings((int) activeBookings.stream()
-                            .map(booking -> booking.getReservation() != null ? booking.getReservation().getId() : booking.getId())
+                            .map(booking -> booking.getReservation() != null ? booking.getReservation().getId()
+                                    : booking.getId())
                             .filter(Objects::nonNull)
                             .distinct()
                             .count())
@@ -1883,7 +1897,8 @@ public class ReservationServiceImpl implements ReservationService {
             return StandardResponse.success(response, "Front office dashboard data fetched successfully");
         } catch (Exception e) {
             log.error("Error fetching front office dashboard: ", e);
-            return StandardResponse.error("Failed to fetch front office dashboard data", "FETCH_ERROR", null, e.getMessage());
+            return StandardResponse.error("Failed to fetch front office dashboard data", "FETCH_ERROR", null,
+                    e.getMessage());
         }
     }
 
@@ -1945,7 +1960,9 @@ public class ReservationServiceImpl implements ReservationService {
                 .children(reservation != null ? reservation.getNumberOfChildren() : null)
                 .reservationStatus(reservation != null ? statusValue(reservation.getReservationStatus()) : null)
                 .bookingStatus(statusValue(booking.getBookingStatus()))
-                .ratePlanName(reservation != null && reservation.getRatePlan() != null ? reservation.getRatePlan().getName() : null)
+                .ratePlanName(
+                        reservation != null && reservation.getRatePlan() != null ? reservation.getRatePlan().getName()
+                                : null)
                 .ratePerNight(booking.getRatePerNight())
                 .totalAmount(booking.getFinalPrice())
                 .paidAmount(paidAmount)
@@ -1967,12 +1984,16 @@ public class ReservationServiceImpl implements ReservationService {
     private String resolveFrontOfficeDisplayStatus(String roomStatus, String hkStatus, Booking booking) {
         if (booking != null) {
             String bookingStatus = statusCode(booking.getBookingStatus());
-            if ("CHECKED_IN".equals(bookingStatus)) return "OCCUPIED";
-            if ("CONFIRMED".equals(bookingStatus) || "PENDING".equals(bookingStatus)) return "BOOKED";
+            if ("CHECKED_IN".equals(bookingStatus))
+                return "OCCUPIED";
+            if ("CONFIRMED".equals(bookingStatus) || "PENDING".equals(bookingStatus))
+                return "BOOKED";
             return "BOOKED";
         }
-        if (isMaintenanceStatus(roomStatus) || isMaintenanceStatus(hkStatus)) return "MAINTENANCE";
-        if (isBlockedStatus(roomStatus) || isBlockedStatus(hkStatus)) return "BLOCKED";
+        if (isMaintenanceStatus(roomStatus) || isMaintenanceStatus(hkStatus))
+            return "MAINTENANCE";
+        if (isBlockedStatus(roomStatus) || isBlockedStatus(hkStatus))
+            return "BLOCKED";
         return "AVAILABLE";
     }
 
@@ -1992,12 +2013,14 @@ public class ReservationServiceImpl implements ReservationService {
     }
 
     private String statusValue(CommonMaster status) {
-        if (status == null) return null;
+        if (status == null)
+            return null;
         return status.getValue() != null ? status.getValue() : status.getCode();
     }
 
     private String statusCode(CommonMaster status) {
-        if (status == null || status.getCode() == null) return "";
+        if (status == null || status.getCode() == null)
+            return "";
         return status.getCode().trim().toUpperCase(Locale.ROOT);
     }
 
@@ -2006,7 +2029,8 @@ public class ReservationServiceImpl implements ReservationService {
     }
 
     private String guestName(Guest guest) {
-        if (guest == null) return null;
+        if (guest == null)
+            return null;
         return String.join(" ",
                 Optional.ofNullable(guest.getFirstName()).orElse(""),
                 Optional.ofNullable(guest.getLastName()).orElse("")).trim();
