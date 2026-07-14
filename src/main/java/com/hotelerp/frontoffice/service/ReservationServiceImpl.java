@@ -64,19 +64,25 @@ public class ReservationServiceImpl implements ReservationService {
             } else if (req.getGuestDetails() != null) {
                 // ── Create Guest flow ─────────────────────────────────────
                 GuestRequest gd = req.getGuestDetails();
-                if (gd.getEmail() == null || gd.getEmail().isBlank()) {
-                    return StandardResponse.error("Guest email is required", "GUEST_EMAIL_REQUIRED",
-                            "guestDetails.email", null);
-                }
-                if (guestRepository.existsByEmailAndIsDeletedFalse(gd.getEmail())) {
-                    // Guest already exists — use the existing record instead of failing
-                    return StandardResponse.error("Duplicate email Id Already Exist",
-                            "DUPLICATE_EMAIL", "guestDetails.email", null);
+                Optional<Guest> guestOptional = guestRepository.findByFirstNameAndLastNameAndIsDeletedFalse(gd.getFirstName(), gd.getLastName());
+                if (guestOptional.isPresent()) {
+                    guest = guestOptional.get();
                 } else {
-                    guest = buildInlineGuest(gd);
-                    guest = guestRepository.save(guest);
-                    log.info("Inline guest created with ID={}", guest.getId());
+                    if (gd.getEmail() == null || gd.getEmail().isBlank()) {
+                        return StandardResponse.error("Guest email is required", "GUEST_EMAIL_REQUIRED",
+                                "guestDetails.email", null);
+                    }
+                    if (guestRepository.existsByEmailAndIsDeletedFalse(gd.getEmail())) {
+                        // Guest already exists — use the existing record instead of failing
+                        return StandardResponse.error("Duplicate email Id Already Exist",
+                                "DUPLICATE_EMAIL", "guestDetails.email", null);
+                    } else {
+                        guest = buildInlineGuest(gd);
+                        guest = guestRepository.save(guest);
+                        log.info("Inline guest created with ID={}", guest.getId());
+                    }
                 }
+
 
             } else {
                 return StandardResponse.error(

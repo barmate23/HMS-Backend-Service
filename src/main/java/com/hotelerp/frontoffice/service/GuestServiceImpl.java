@@ -4,12 +4,15 @@ import com.hotelerp.frontoffice.common.StandardResponse;
 import com.hotelerp.frontoffice.dto.GuestRequest;
 import com.hotelerp.frontoffice.dto.GuestResponse;
 import com.hotelerp.frontoffice.entity.Guest;
+import com.hotelerp.frontoffice.repository.FolioRepository;
 import com.hotelerp.frontoffice.repository.GuestRepository;
+import com.hotelerp.frontoffice.repository.ReservationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -21,6 +24,8 @@ import java.util.stream.Collectors;
 public class GuestServiceImpl implements GuestService {
 
     private final GuestRepository guestRepository;
+    private final ReservationRepository reservationRepository;
+    private final FolioRepository folioRepository;
 
     // ── Create ─────────────────────────────────────────────────────────────
 
@@ -183,6 +188,9 @@ public class GuestServiceImpl implements GuestService {
 
     /** Map entity → response DTO. */
     private GuestResponse mapToResponse(Guest g) {
+        long stays = reservationRepository.countByGuest_IdAndIsDeletedFalse(g.getId());
+        BigDecimal spent = folioRepository.sumTotalChargesByGuestId(g.getId());
+
         return GuestResponse.builder()
                 .id(g.getId())
                 .title(g.getTitle())
@@ -200,15 +208,11 @@ public class GuestServiceImpl implements GuestService {
                 .country(g.getCountry())
                 .nationality(g.getNationality())
                 .gender(g.getGender())
-                .dateOfBirth(g.getDateOfBirth())
-                .idProofType(g.getIdProofType())
-                .idProofNumber(g.getIdProofNumber())
                 .guestNotes(g.getGuestNotes())
                 .preference(g.getPreference())
                 .isVip(g.getIsVip())
-                .isActive(g.getIsActive())
-                .createdAt(g.getCreatedAt())
-                .updatedAt(g.getUpdatedAt())
+                .numberOfStays((int) stays)
+                .totalSpent(spent != null ? spent : BigDecimal.ZERO)
                 .build();
     }
 }

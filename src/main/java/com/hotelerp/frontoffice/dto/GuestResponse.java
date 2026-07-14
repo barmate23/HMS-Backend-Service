@@ -3,8 +3,7 @@ package com.hotelerp.frontoffice.dto;
 import com.hotelerp.frontoffice.entity.Guest;
 import lombok.*;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.math.BigDecimal;
 
 /**
  * Response payload returned after Guest CRUD operations.
@@ -26,6 +25,9 @@ public class GuestResponse {
     private String phone;
     private String email;
 
+    private Integer numberOfStays;
+    private BigDecimal totalSpent;
+
     // Address
     private String addressLine1;
     private String addressLine2;
@@ -37,17 +39,10 @@ public class GuestResponse {
     // Identity
     private String nationality;
     private Guest.Gender gender;
-    private LocalDate dateOfBirth;
-    private Guest.IdProofType idProofType;
-    private String idProofNumber;
 
     // Extras
     private String guestNotes;
     private String preference;
     private Boolean isVip;
-    private Boolean isActive;
 
-    // Audit
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
 }

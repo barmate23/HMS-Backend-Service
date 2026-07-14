@@ -13,6 +13,7 @@ import java.util.Optional;
 public interface GuestRepository extends JpaRepository<Guest, Long> {
     List<Guest> findByIsDeletedFalse();
     boolean existsByEmailAndIsDeletedFalse(String email);
+    Optional<Guest> findByFirstNameAndLastNameAndIsDeletedFalse(String firstName,String lastName);
     boolean existsByEmailAndIdNotAndIsDeletedFalse(String email, Long id);
 
     @Query("SELECT g FROM Guest g WHERE g.isDeleted = false AND (" +

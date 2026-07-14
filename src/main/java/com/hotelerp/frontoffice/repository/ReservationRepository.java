@@ -16,6 +16,8 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long>,
 
     List<Reservation> findByGuest_IdAndIsDeletedFalse(Long guestId);
 
+    long countByGuest_IdAndIsDeletedFalse(Long guestId);
+
     Optional<Reservation> findByIdAndIsDeletedFalse(Long id);
 
     /**
