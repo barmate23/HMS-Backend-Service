@@ -702,7 +702,7 @@ public class ReservationServiceImpl implements ReservationService {
                     else statusStr = b.getBookingStatus() != null ? b.getBookingStatus().getValue() : "Unknown";
                 }
 
-                return ArrivalBookingResponse.builder().bookingId(b.getId()).bookingRef("BK-" + b.getId()).guestName(g.getFirstName() + " " + g.getLastName()).guestIsVip(g.getIsVip()).numberOfNights(b.getNumberOfNights()).roomTypeName(b.getRoom().getRoomType() != null ? b.getRoom().getRoomType().getName() : "").eta(checkout ? b.getReservation().getCheckOutTime() : b.getReservation().getCheckInTime()).balance(balance).bookingStatus(statusStr).checkInDate(b.getCheckInDate()).checkOutDate(b.getCheckOutDate()).roomNumber(b.getRoom() != null ? b.getRoom().getRoomNumber() : null).build();
+                return ArrivalBookingResponse.builder().bookingId(b.getId()).bookingRef("BK-" + b.getId()).guestName(g.getFirstName() + " " + g.getLastName()).guestIsVip(g.getIsVip()).numberOfNights(b.getNumberOfNights()).roomTypeName(b.getRoom().getRoomType() != null ? b.getRoom().getRoomType().getName() : "").eta(checkout ? b.getReservation().getCheckOutTime() : b.getReservation().getCheckInTime()).balance(balance).gstPercent(b.getGsrPercent()).bookingStatus(statusStr).checkInDate(b.getCheckInDate()).checkOutDate(b.getCheckOutDate()).roomNumber(b.getRoom() != null ? b.getRoom().getRoomNumber() : null).build();
             }).collect(Collectors.toList());
 
             ArrivalsListResponse response = ArrivalsListResponse.builder().arrivals(arrivals).pendingArrivalsCount(pendingCount).checkedInCount(processedCount).totalExpectedCount(pendingCount + processedCount).build();

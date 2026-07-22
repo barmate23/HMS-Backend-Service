@@ -68,7 +68,7 @@ public class Booking {
     private BigDecimal totalPrice;
 
     /** ratePerNight + ratePlanCharge  × numberOfNights */
-    @Column(name = "totalPrice", nullable = false, precision = 10, scale = 2)
+    @Column(name = "gsrPercent", nullable = false, precision = 10, scale = 2)
     private Integer gsrPercent;
 
     @Builder.Default
