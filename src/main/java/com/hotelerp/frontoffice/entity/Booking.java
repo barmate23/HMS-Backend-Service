@@ -67,6 +67,10 @@ public class Booking {
     @Column(name = "totalPrice", nullable = false, precision = 10, scale = 2)
     private BigDecimal totalPrice;
 
+    /** ratePerNight + ratePlanCharge  × numberOfNights */
+    @Column(name = "totalPrice", nullable = false, precision = 10, scale = 2)
+    private Integer gsrPercent;
+
     @Builder.Default
     @Column(name = "discountPercentage", precision = 5, scale = 2)
     private BigDecimal discountPercentage = BigDecimal.ZERO;

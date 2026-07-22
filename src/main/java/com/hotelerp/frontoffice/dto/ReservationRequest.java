@@ -59,6 +59,7 @@ public class ReservationRequest {
     @NotNull(message = "Number of adults is required")
     @Positive(message = "Number of adults must be positive")
     private Integer numberOfAdults;
+    private Integer gstPercent;
 
     private Integer numberOfChildren = 0;
 
