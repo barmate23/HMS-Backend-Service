@@ -54,5 +54,6 @@ public class ReservationResponse {
 
     // ── BILLING column ─────────────────────────────────────────────────────
     private BigDecimal grandTotal;    // sum of Booking.finalPrice
+    private Integer gstPercent;    // sum of Booking.finalPrice
     private BigDecimal paidAmount;    // sum of successful Payments
 }
