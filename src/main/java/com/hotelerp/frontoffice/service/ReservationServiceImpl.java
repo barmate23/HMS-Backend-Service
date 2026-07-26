@@ -516,29 +516,110 @@ public class ReservationServiceImpl implements ReservationService {
     /**
      * Maps to slim listing DTO — only what the listing columns show.
      */
-    private ReservationResponse mapToResponse(Reservation r, List<Booking> bookings) {
-        if (bookings == null) {
-            bookings = bookingRepository.findByReservation_IdAndIsDeletedFalse(r.getId());
+    private ReservationResponse mapToResponse(
+            Reservation r,
+            List<Booking> bookings) {
+
+        if (bookings == null || bookings.isEmpty()) {
+            bookings = bookingRepository
+                    .findByReservation_IdAndIsDeletedFalse(r.getId());
         }
 
-        BigDecimal grandTotal = bookings.stream().map(Booking::getFinalPrice).filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
-        Integer gstPercent = bookings.get(0).getGsrPercent()!=null?bookings.get(0).getGsrPercent():0;
+        if (bookings == null) {
+            bookings = Collections.emptyList();
+        }
+
+        BigDecimal grandTotal = bookings.stream()
+                .filter(Objects::nonNull)
+                .map(Booking::getFinalPrice)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        Integer gstPercent = bookings.stream()
+                .filter(Objects::nonNull)
+                .map(Booking::getGsrPercent)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse(0);
+
         BigDecimal paidAmount = BigDecimal.ZERO;
+
         if (r.getId() != null) {
             try {
-                paidAmount = billRepository.sumPaidAmountByReservation(r.getId());
-                if (paidAmount == null) paidAmount = BigDecimal.ZERO;
+                paidAmount = billRepository
+                        .sumPaidAmountByReservation(r.getId());
+
+                if (paidAmount == null) {
+                    paidAmount = BigDecimal.ZERO;
+                }
+
             } catch (Exception ignored) {
+                paidAmount = BigDecimal.ZERO;
             }
         }
 
         Guest g = r.getGuest();
 
-        List<ReservationResponse.RoomSummary> roomSummaries = bookings.stream().map(b -> ReservationResponse.RoomSummary.builder().roomNumber(b.getRoom().getRoomNumber()).roomTypeName(b.getRoom().getRoomType() != null ? b.getRoom().getRoomType().getName() : null).ratePlanName(r.getRatePlan() != null ? r.getRatePlan().getName() : null).build()).collect(Collectors.toList());
+        List<ReservationResponse.RoomSummary> roomSummaries =
+                bookings.stream()
+                        .filter(Objects::nonNull)
+                        .filter(b -> b.getRoom() != null)
+                        .map(b ->
+                                ReservationResponse.RoomSummary.builder()
+                                        .roomNumber(
+                                                b.getRoom().getRoomNumber()
+                                        )
+                                        .roomTypeName(
+                                                b.getRoom().getRoomType() != null
+                                                        ? b.getRoom()
+                                                        .getRoomType()
+                                                        .getName()
+                                                        : null
+                                        )
+                                        .ratePlanName(
+                                                r.getRatePlan() != null
+                                                        ? r.getRatePlan().getName()
+                                                        : null
+                                        )
+                                        .build()
+                        )
+                        .collect(Collectors.toList());
 
-        return ReservationResponse.builder().id(r.getId()).guestId(g != null ? g.getId() : null).guestInitials(g != null ? extractInitials(g.getFirstName(), g.getLastName()) : null).guestFullName(g != null ? g.getFirstName() + " " + g.getLastName() : "Unknown").guestPhone(g != null ? g.getPhone() : null).guestBadge(g != null ? resolveGuestBadge(g) : null).checkInDate(r.getCheckInDate()).checkOutDate(r.getCheckOutDate()).numberOfNights(r.getNumberOfNights()).numberOfAdults(r.getNumberOfAdults()).numberOfChildren(r.getNumberOfChildren()).reservationStatus(r.getReservationStatus() != null ? r.getReservationStatus().getValue() : null).numberOfRooms(r.getNumberOfRooms()).rooms(roomSummaries).grandTotal(grandTotal).gstPercent(gstPercent).paidAmount(paidAmount).build();
+        return ReservationResponse.builder()
+                .id(r.getId())
+                .guestId(g != null ? g.getId() : null)
+                .guestInitials(
+                        g != null
+                                ? extractInitials(
+                                g.getFirstName(),
+                                g.getLastName()
+                        )
+                                : null
+                )
+                .guestFullName(
+                        g != null
+                                ? g.getFirstName() + " " + g.getLastName()
+                                : "Unknown"
+                )
+                .guestPhone(g != null ? g.getPhone() : null)
+                .guestBadge(g != null ? resolveGuestBadge(g) : null)
+                .checkInDate(r.getCheckInDate())
+                .checkOutDate(r.getCheckOutDate())
+                .numberOfNights(r.getNumberOfNights())
+                .numberOfAdults(r.getNumberOfAdults())
+                .numberOfChildren(r.getNumberOfChildren())
+                .reservationStatus(
+                        r.getReservationStatus() != null
+                                ? r.getReservationStatus().getValue()
+                                : null
+                )
+                .numberOfRooms(r.getNumberOfRooms())
+                .rooms(roomSummaries)
+                .grandTotal(grandTotal)
+                .gstPercent(gstPercent)
+                .paidAmount(paidAmount)
+                .build();
     }
-
     // ── Detail mapper ─────────────────────────────────────────────────────
 
     /**
