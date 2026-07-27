@@ -7,7 +7,7 @@ pipeline {
         DOCKER_NETWORK = "updated_orgadmin_rmscadminnetwork"
         HOST_PORT = "9001"
         CONTAINER_PORT = "9001"
-        DOCKER_BUILDKIT = "1"
+        DOCKER_BUILDKIT = "0"
     }
 
     stages {
