@@ -7,7 +7,7 @@ pipeline {
         DOCKER_NETWORK = "updated_orgadmin_rmscadminnetwork"
         HOST_PORT = "9001"
         CONTAINER_PORT = "9001"
-        DOCKER_BUILDKIT = "0"
+        DOCKER_BUILDKIT = "1"
     }
 
     stages {
@@ -36,7 +36,6 @@ pipeline {
             steps {
                 sh """
                     docker rm -f ${CONTAINER_NAME} || true
-                    docker rmi -f ${IMAGE_NAME}:latest || true
                 """
             }
         }
@@ -44,7 +43,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 sh """
-                    DOCKER_BUILDKIT=0 docker build --no-cache -t ${IMAGE_NAME}:latest .
+                    docker build -t ${IMAGE_NAME}:latest .
                 """
             }
         }
