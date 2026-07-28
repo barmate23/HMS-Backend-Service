@@ -14,11 +14,19 @@ import lombok.Data;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class ChannexCustomer {
 
-    /** Full guest name, e.g. "John Doe" */
+    /** Guest first name */
     @JsonProperty("name")
     private String name;
 
-    /** Guest email address */
+    /** Guest last name / surname */
+    @JsonProperty("surname")
+    private String surname;
+
+    /** Guest email address (Channex uses "email" not "mail") */
+    @JsonProperty("email")
+    private String email;
+
+    /** Also support "mail" as some OTAs use this key */
     @JsonProperty("mail")
     private String mail;
 
@@ -41,4 +49,18 @@ public class ChannexCustomer {
     /** Guest zip/postal code */
     @JsonProperty("zip")
     private String zip;
+
+    /** Convenience method to get email regardless of which field Channex used */
+    public String getResolvedEmail() {
+        if (email != null && !email.isBlank()) return email;
+        if (mail != null && !mail.isBlank()) return mail;
+        return null;
+    }
+
+    /** Convenience method to get full name */
+    public String getFullName() {
+        if (name != null && surname != null) return name.trim() + " " + surname.trim();
+        if (name != null) return name.trim();
+        return "OTA Guest";
+    }
 }

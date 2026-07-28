@@ -45,7 +45,12 @@ public class ChannexWebhookServiceImpl implements ChannexWebhookService {
 
         ChannexBooking bookingData = payload.getPayload().getBooking();
         String status = bookingData.getStatus() != null ? bookingData.getStatus().toLowerCase() : "new";
-        String channexRef = bookingData.getOtaReservationCode() != null ? bookingData.getOtaReservationCode() : bookingData.getId();
+
+        // Real Channex uses unique_id (e.g. "GBB 1234") as the human-readable booking code
+        // Fall back to ota_reservation_code, then internal Channex id
+        String channexRef = bookingData.getUniqueId() != null ? bookingData.getUniqueId()
+                : (bookingData.getOtaReservationCode() != null ? bookingData.getOtaReservationCode()
+                : bookingData.getId());
 
         log.info("Processing Channex booking webhook: ref={}, status={}, ota={}", channexRef, status, bookingData.getOtaName());
 
@@ -59,7 +64,7 @@ public class ChannexWebhookServiceImpl implements ChannexWebhookService {
     }
 
     private StandardResponse<?> handleNewBooking(ChannexBooking bookingData, String channexRef) {
-        // 1. Idempotency Check: if booking reference already exists, ignore/return success
+        // 1. Idempotency Check
         Optional<Reservation> existingOpt = reservationRepository.findAll().stream()
                 .filter(r -> !Boolean.TRUE.equals(r.getIsDeleted()) && channexRef.equalsIgnoreCase(r.getBookingReference()))
                 .findFirst();
@@ -69,7 +74,7 @@ public class ChannexWebhookServiceImpl implements ChannexWebhookService {
             return StandardResponse.success("Booking reference already processed");
         }
 
-        // 2. Build ReservationRequest DTO compatible with existing createReservation logic
+        // 2. Build ReservationRequest DTO
         ReservationRequest req = new ReservationRequest();
 
         // Dates
@@ -78,16 +83,17 @@ public class ChannexWebhookServiceImpl implements ChannexWebhookService {
         req.setCheckInDate(checkIn);
         req.setCheckOutDate(checkOut);
 
-        // Guest handling
+        // Guest handling — real Channex sends name + surname separately, email (not mail)
         ChannexCustomer customer = bookingData.getCustomer();
         if (customer != null) {
-            String fullName = customer.getName() != null ? customer.getName().trim() : "OTA Guest";
+            String fullName = customer.getFullName();
             String[] names = fullName.split("\\s+", 2);
             String firstName = names[0];
             String lastName = names.length > 1 ? names[1] : "Guest";
 
-            String email = customer.getMail() != null && !customer.getMail().isBlank() 
-                    ? customer.getMail() 
+            String resolvedEmail = customer.getResolvedEmail();
+            String email = (resolvedEmail != null && !resolvedEmail.isBlank())
+                    ? resolvedEmail
                     : "ota_" + System.currentTimeMillis() + "@channex.booking";
 
             Optional<Guest> existingGuest = guestRepository.findByEmailAndIsDeletedFalse(email);
@@ -116,7 +122,7 @@ public class ChannexWebhookServiceImpl implements ChannexWebhookService {
         // Hotel ID default
         req.setHotelId(1L);
 
-        // Room Matching Strategy
+        // Room Matching
         List<Long> assignedRoomIds = resolveRooms(bookingData, checkIn, checkOut);
         if (assignedRoomIds.isEmpty()) {
             log.error("Unable to match or allocate any rooms for Channex booking {}", channexRef);
@@ -124,10 +130,14 @@ public class ChannexWebhookServiceImpl implements ChannexWebhookService {
         }
         req.setRoomIds(assignedRoomIds);
 
-        // Adults / Children count
-        int totalAdults = 0;
+        // Adults / Children — use occupancy object first (real Channex), fallback to rooms[]
+        int totalAdults = 1;
         int totalChildren = 0;
-        if (bookingData.getRooms() != null) {
+        if (bookingData.getOccupancy() != null) {
+            totalAdults = bookingData.getOccupancy().getAdults() != null ? bookingData.getOccupancy().getAdults() : 1;
+            totalChildren = bookingData.getOccupancy().getChildren() != null ? bookingData.getOccupancy().getChildren() : 0;
+        } else if (bookingData.getRooms() != null) {
+            totalAdults = 0;
             for (ChannexRoom r : bookingData.getRooms()) {
                 totalAdults += (r.getAdultsCount() != null ? r.getAdultsCount() : 1);
                 totalChildren += (r.getChildrenCount() != null ? r.getChildrenCount() : 0);

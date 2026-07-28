@@ -72,4 +72,29 @@ public class ChannexBooking {
     /** Guest notes / special requests */
     @JsonProperty("notes")
     private String notes;
+
+    /** Channex unique booking code (e.g. GBB-1234) */
+    @JsonProperty("unique_id")
+    private String uniqueId;
+
+    /** Property ID in Channex */
+    @JsonProperty("property_id")
+    private String propertyId;
+
+    /** Occupancy details (adults, children, infants) */
+    @JsonProperty("occupancy")
+    private ChannexOccupancy occupancy;
+
+    @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class ChannexOccupancy {
+        @JsonProperty("adults")
+        private Integer adults;
+
+        @JsonProperty("children")
+        private Integer children;
+
+        @JsonProperty("infants")
+        private Integer infants;
+    }
 }
