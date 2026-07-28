@@ -111,27 +111,60 @@ public class ChannexWebhookServiceImpl implements ChannexWebhookService {
         // 6. Guest Details Extraction & Matching
         // ══════════════════════════════════════════════════════════════════════
         String fullName = resolveCustomerName(root);
-        String[] nameParts = fullName.split("\\s+", 2);
-        String firstName = nameParts[0];
-        String lastName = nameParts.length > 1 ? nameParts[1] : "Guest";
+        String firstName;
+        String lastName;
+        if (fullName != null && !fullName.isBlank() && !"OTA Guest".equalsIgnoreCase(fullName)) {
+            String[] nameParts = fullName.trim().split("\\s+", 2);
+            firstName = nameParts[0];
+            lastName = nameParts.length > 1 ? nameParts[1] : "";
+        } else {
+            String fn = resolveString(root, "first_name", "customer_first_name");
+            String ln = resolveString(root, "last_name", "surname", "customer_last_name");
+            firstName = (fn != null && !fn.isBlank()) ? fn.trim() : "OTA";
+            lastName = (ln != null && !ln.isBlank()) ? ln.trim() : "Guest";
+        }
 
         String customerEmail = resolveCustomerEmail(root, finalRef);
         String customerPhone = resolveCustomerPhone(root);
+        String addressLine1 = resolveString(root, "customer_address", "address", "address_line1", "street");
+        String city = resolveString(root, "customer_city", "city");
+        String state = resolveString(root, "customer_state", "state", "province");
+        String postCode = resolveString(root, "customer_zip", "customer_postcode", "zip", "post_code", "postal_code");
+        String country = resolveString(root, "customer_country", "country", "country_code");
 
         ReservationRequest req = new ReservationRequest();
         req.setCheckInDate(checkIn);
         req.setCheckOutDate(checkOut);
         req.setHotelId(1L);
 
-        Optional<Guest> existingGuest = guestRepository.findByEmailAndIsDeletedFalse(customerEmail);
-        if (existingGuest.isPresent()) {
-            req.setGuestId(existingGuest.get().getId());
+        GuestRequest gd = new GuestRequest();
+        gd.setFirstName(firstName);
+        gd.setLastName(lastName);
+        gd.setEmail(customerEmail);
+        gd.setPhone(customerPhone != null ? customerPhone : "0000000000");
+        gd.setAddressLine1(addressLine1);
+        gd.setCity(city);
+        gd.setState(state);
+        gd.setPostCode(postCode);
+        gd.setCountry(country);
+
+        Optional<Guest> existingGuestOpt = guestRepository.findByEmailAndIsDeletedFalse(customerEmail);
+        if (existingGuestOpt.isPresent()) {
+            Guest existingGuest = existingGuestOpt.get();
+            existingGuest.setFirstName(firstName);
+            existingGuest.setLastName(lastName);
+            if (customerPhone != null && !"0000000000".equals(customerPhone)) {
+                existingGuest.setPhone(customerPhone);
+            }
+            if (addressLine1 != null && !addressLine1.isBlank()) existingGuest.setAddressLine1(addressLine1);
+            if (city != null && !city.isBlank()) existingGuest.setCity(city);
+            if (state != null && !state.isBlank()) existingGuest.setState(state);
+            if (postCode != null && !postCode.isBlank()) existingGuest.setPostCode(postCode);
+            if (country != null && !country.isBlank()) existingGuest.setCountry(country);
+            existingGuest.setUpdatedAt(LocalDateTime.now());
+            existingGuest = guestRepository.save(existingGuest);
+            req.setGuestId(existingGuest.getId());
         } else {
-            GuestRequest gd = new GuestRequest();
-            gd.setFirstName(firstName);
-            gd.setLastName(lastName);
-            gd.setEmail(customerEmail);
-            gd.setPhone(customerPhone != null ? customerPhone : "0000000000");
             req.setGuestDetails(gd);
         }
 
@@ -273,47 +306,28 @@ public class ChannexWebhookServiceImpl implements ChannexWebhookService {
     }
 
     private String resolveCustomerName(JsonNode root) {
-        String name = findStringInNode(root, "customer_name", "guest_name", "billing_name");
-        if (name != null) return name;
+        String name = resolveString(root, "customer_name", "guest_name", "billing_name", "name");
+        if (name != null && !name.isBlank()) return name.trim();
 
-        JsonNode customerNode = root.path("customer");
-        if (customerNode.isMissingNode() || customerNode.isNull()) {
-            customerNode = root.path("payload").path("booking").path("customer");
-        }
-
-        if (!customerNode.isMissingNode() && !customerNode.isNull()) {
-            String firstName = findStringInNode(customerNode, "name", "first_name");
-            String lastName = findStringInNode(customerNode, "surname", "last_name");
-            if (firstName != null && lastName != null) return firstName.trim() + " " + lastName.trim();
-            if (firstName != null) return firstName.trim();
-            if (lastName != null) return lastName.trim();
-        }
+        String firstName = resolveString(root, "first_name", "customer_first_name");
+        String lastName = resolveString(root, "last_name", "surname", "customer_last_name");
+        if (firstName != null && lastName != null) return firstName.trim() + " " + lastName.trim();
+        if (firstName != null) return firstName.trim();
+        if (lastName != null) return lastName.trim();
 
         return "OTA Guest";
     }
 
     private String resolveCustomerEmail(JsonNode root, String bookingRef) {
-        String email = findStringInNode(root, "customer_email", "email", "mail");
-        if (email != null) return email;
-
-        JsonNode customerNode = root.path("customer");
-        if (!customerNode.isMissingNode() && !customerNode.isNull()) {
-            email = findStringInNode(customerNode, "email", "mail");
-            if (email != null) return email;
-        }
+        String email = resolveString(root, "customer_email", "email", "mail");
+        if (email != null && !email.isBlank()) return email.trim();
 
         return "ota_" + bookingRef.replaceAll("[^a-zA-Z0-9]", "") + "@channex.booking";
     }
 
     private String resolveCustomerPhone(JsonNode root) {
-        String phone = findStringInNode(root, "customer_phone", "phone", "mobile");
-        if (phone != null) return phone;
-
-        JsonNode customerNode = root.path("customer");
-        if (!customerNode.isMissingNode() && !customerNode.isNull()) {
-            phone = findStringInNode(customerNode, "phone", "mobile");
-            if (phone != null) return phone;
-        }
+        String phone = resolveString(root, "customer_phone", "phone", "mobile", "telephone");
+        if (phone != null && !phone.isBlank()) return phone.trim();
 
         return "0000000000";
     }
@@ -327,7 +341,13 @@ public class ChannexWebhookServiceImpl implements ChannexWebhookService {
         if (val != null) return val;
         val = findStringInNode(root.path("payload").path("booking"), fields);
         if (val != null) return val;
-        return findStringInNode(root.path("attributes"), fields);
+        val = findStringInNode(root.path("attributes"), fields);
+        if (val != null) return val;
+        val = findStringInNode(root.path("customer"), fields);
+        if (val != null) return val;
+        val = findStringInNode(root.path("payload").path("booking").path("customer"), fields);
+        if (val != null) return val;
+        return findStringInNode(root.path("attributes").path("customer"), fields);
     }
 
     private int resolveInt(JsonNode root, String... fields) {

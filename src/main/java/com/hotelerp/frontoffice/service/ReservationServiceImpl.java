@@ -66,13 +66,17 @@ public class ReservationServiceImpl implements ReservationService {
                 Optional<Guest> guestOptional = guestRepository.findByFirstNameAndLastNameAndIsDeletedFalse(gd.getFirstName(), gd.getLastName());
                 if (guestOptional.isPresent()) {
                     guest = guestOptional.get();
+                    updateGuestFromDetails(guest, gd);
+                    guest = guestRepository.save(guest);
                 } else {
                     if (gd.getEmail() == null || gd.getEmail().isBlank()) {
                         return StandardResponse.error("Guest email is required", "GUEST_EMAIL_REQUIRED", "guestDetails.email", null);
                     }
-                    if (guestRepository.existsByEmailAndIsDeletedFalse(gd.getEmail())) {
-                        // Guest already exists — use the existing record instead of failing
-                        return StandardResponse.error("Duplicate email Id Already Exist", "DUPLICATE_EMAIL", "guestDetails.email", null);
+                    Optional<Guest> guestByEmail = guestRepository.findByEmailAndIsDeletedFalse(gd.getEmail());
+                    if (guestByEmail.isPresent()) {
+                        guest = guestByEmail.get();
+                        updateGuestFromDetails(guest, gd);
+                        guest = guestRepository.save(guest);
                     } else {
                         guest = buildInlineGuest(gd);
                         guest = guestRepository.save(guest);
@@ -599,7 +603,7 @@ public class ReservationServiceImpl implements ReservationService {
                 )
                 .guestFullName(
                         g != null
-                                ? g.getFirstName() + " " + g.getLastName()
+                                ? (g.getFirstName() + (g.getLastName() != null && !g.getLastName().isBlank() ? " " + g.getLastName() : "")).trim()
                                 : "Unknown"
                 )
                 .guestPhone(g != null ? g.getPhone() : null)
@@ -665,8 +669,17 @@ public class ReservationServiceImpl implements ReservationService {
      */
     private String extractInitials(String firstName, String lastName) {
         StringBuilder sb = new StringBuilder();
-        if (firstName != null && !firstName.isBlank()) sb.append(firstName.charAt(0));
-        if (lastName != null && !lastName.isBlank()) sb.append(lastName.charAt(0));
+        if (firstName != null && !firstName.isBlank()) {
+            String[] parts = firstName.trim().split("\\s+");
+            sb.append(parts[0].charAt(0));
+            if ((lastName == null || lastName.isBlank()) && parts.length > 1) {
+                sb.append(parts[parts.length - 1].charAt(0));
+            }
+        }
+        if (lastName != null && !lastName.isBlank()) {
+            String[] parts = lastName.trim().split("\\s+");
+            sb.append(parts[parts.length - 1].charAt(0));
+        }
         return sb.toString().toUpperCase();
     }
 
