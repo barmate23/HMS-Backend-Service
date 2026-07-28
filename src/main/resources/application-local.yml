@@ -6,7 +6,7 @@ spring:
     name: bookingservice
 
   datasource:
-    url: jdbc:mysql://erp-mysql:3306/hms?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    url: jdbc:mysql://100.120.107.63:3306/hms?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     username: root
     password: root
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -41,25 +41,21 @@ management:
 
 logging:
   level:
-    com.schoolerp.student: INFO
+    com.hotelerp.frontoffice: DEBUG
     org.springframework.web: DEBUG
     org.hibernate.SQL: DEBUG
 
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%X{logId:-}] [%X{requestId:-}] [%X{operation:-}] %-5level %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%X{logId:-}] %-5level %logger{36} - %msg%n"
 
   file:
     name: logs/frontoffice-service.log
 
 eureka:
   client:
-    service-url:
-      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://adminserviceregistry:8761/eureka/}
-    register-with-eureka: true
-    fetch-registry: true
-
-  instance:
-    prefer-ip-address: true
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
 
 channex:
   api:
