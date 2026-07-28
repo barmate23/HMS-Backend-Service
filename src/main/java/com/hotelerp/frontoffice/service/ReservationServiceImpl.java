@@ -130,7 +130,7 @@ public class ReservationServiceImpl implements ReservationService {
                 BigDecimal effectiveRate = ratePerNight.add(ratePlanCharge);
                 BigDecimal total = effectiveRate.multiply(BigDecimal.valueOf(nights));
                 grandTotal = grandTotal.add(total);
-                Booking booking = Booking.builder().reservation(savedReservation).room(room).checkInDate(req.getCheckInDate()).checkOutDate(req.getCheckOutDate()).numberOfNights((int) nights).ratePerNight(ratePerNight).ratePlanCharge(ratePlanCharge).totalPrice(total).gsrPercent(req.getGstPercent()).discountPercentage(BigDecimal.ZERO).discountAmount(BigDecimal.ZERO).finalPrice(total).bookingStatus(reservation.getReservationStatus()).isDeleted(false).build();
+                Booking booking = Booking.builder().reservation(savedReservation).room(room).checkInDate(req.getCheckInDate()).checkOutDate(req.getCheckOutDate()).numberOfNights((int) nights).ratePerNight(ratePerNight).ratePlanCharge(ratePlanCharge).totalPrice(total).gsrPercent(req.getGstPercent() != null ? req.getGstPercent() : 0).discountPercentage(BigDecimal.ZERO).discountAmount(BigDecimal.ZERO).finalPrice(total).bookingStatus(reservation.getReservationStatus()).isDeleted(false).build();
 
                 bookings.add(booking);
             }

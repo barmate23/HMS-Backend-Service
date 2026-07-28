@@ -146,6 +146,7 @@ public class ChannexWebhookServiceImpl implements ChannexWebhookService {
         req.setRatePlanId(ratePlan.getId());
 
         // Billing & Metadata
+        req.setGstPercent(0);
         req.setBookingReference(channexRef);
         req.setTravelAgentName(bookingData.getOtaName() != null ? bookingData.getOtaName() : "Channex");
         req.setBusinessSource("OTA - Channex");
