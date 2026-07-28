@@ -8,6 +8,7 @@ import com.hotelerp.frontoffice.entity.Guest;
 import com.hotelerp.frontoffice.entity.RatePlan;
 import com.hotelerp.frontoffice.entity.Reservation;
 import com.hotelerp.frontoffice.entity.Room;
+import com.hotelerp.frontoffice.entity.RoomType;
 import com.hotelerp.frontoffice.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,11 +21,9 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Processes Channex webhook payloads using JsonNode for maximum resilience.
- * 
- * Real Channex flat payload fields:
- *   booking_unique_id, customer_name, arrival_date, count_of_nights,
- *   count_of_rooms, amount, currency, ota_code, ota_name, status, etc.
+ * Enterprise Channex Webhook & Sync Service.
+ * Robustly parses flat, nested, or JSON:API Channex payloads with exhaustive fallback chains.
+ * Correctly aligns pricing, room matching, and GST tax configuration with HMS core logic.
  */
 @Service
 @RequiredArgsConstructor
@@ -35,49 +34,50 @@ public class ChannexWebhookServiceImpl implements ChannexWebhookService {
     private final ReservationRepository reservationRepository;
     private final GuestRepository guestRepository;
     private final RoomRepository roomRepository;
+    private final RoomTypeRepository roomTypeRepository;
     private final RatePlanRepository ratePlanRepository;
 
     @Override
     @Transactional
     public StandardResponse<?> processBookingWebhook(JsonNode root) {
-        // ══════════════════════════════════════════════════════════════════════
-        // Read fields directly from JsonNode — no DTO mapping issues possible
-        // ══════════════════════════════════════════════════════════════════════
-        String bookingRef = getTextOrNull(root, "booking_unique_id");
-        String customerName = getTextOrNull(root, "customer_name");
-        String arrivalDate = getTextOrNull(root, "arrival_date");
-        String departureDate = getTextOrNull(root, "departure_date");
-        int countOfNights = root.path("count_of_nights").asInt(1);
-        int countOfRooms = root.path("count_of_rooms").asInt(1);
-        String status = root.path("status").asText("new").toLowerCase();
-        String otaName = getTextOrNull(root, "ota_name");
-        String otaCode = getTextOrNull(root, "ota_code");
-        String customerEmail = getTextOrNull(root, "customer_email");
-        String customerPhone = getTextOrNull(root, "customer_phone");
-        String notes = getTextOrNull(root, "notes");
-        String bookingId = getTextOrNull(root, "booking_id");
-
-        log.info("Channex fields: bookingRef={}, customer={}, arrival={}, nights={}, rooms={}, status={}, otaCode={}",
-                bookingRef, customerName, arrivalDate, countOfNights, countOfRooms, status, otaCode);
-
-        // Fallback booking reference: booking_unique_id → booking_id → ota_code
-        if (bookingRef == null || bookingRef.isBlank()) {
-            bookingRef = bookingId != null ? bookingId : ("OTA-" + (otaCode != null ? otaCode : System.currentTimeMillis()));
-            log.warn("No booking_unique_id found, using fallback ref: {}", bookingRef);
+        if (root == null || root.isMissingNode() || root.isNull()) {
+            return StandardResponse.error("Received null or empty payload", "INVALID_PAYLOAD", null);
         }
 
+        // ══════════════════════════════════════════════════════════════════════
+        // 1. Exhaustive Fallback Resolution for Check-In / Arrival Date
+        // ══════════════════════════════════════════════════════════════════════
+        String arrivalDate = resolveArrivalDate(root);
+
         if (arrivalDate == null || arrivalDate.isBlank()) {
-            log.error("Missing arrival_date in Channex payload");
+            log.error("Missing arrival_date across all payload locations. Raw: {}", root);
             return StandardResponse.error("Missing arrival_date in payload", "INVALID_PAYLOAD", null);
         }
 
-        // Handle cancellation
-        if ("cancelled".equals(status)) {
+        // ══════════════════════════════════════════════════════════════════════
+        // 2. Exhaustive Fallback Resolution for Booking Reference
+        // ══════════════════════════════════════════════════════════════════════
+        String bookingRef = resolveBookingReference(root);
+        if (bookingRef == null || bookingRef.isBlank()) {
+            bookingRef = "OTA-" + System.currentTimeMillis();
+            log.warn("Unable to resolve booking reference, using fallback: {}", bookingRef);
+        }
+
+        // ══════════════════════════════════════════════════════════════════════
+        // 3. Resolve Booking Status
+        // ══════════════════════════════════════════════════════════════════════
+        String status = resolveString(root, "status");
+        if (status == null) status = "new";
+        status = status.toLowerCase();
+
+        log.info("Channex Webhook Received: ref={}, arrival={}, status={}", bookingRef, arrivalDate, status);
+
+        if ("cancelled".equals(status) || "canceled".equals(status)) {
             return handleCancellation(bookingRef);
         }
 
         // ══════════════════════════════════════════════════════════════════════
-        // Idempotency: skip if booking reference already exists
+        // 4. Idempotency Check — Skip duplicate processing
         // ══════════════════════════════════════════════════════════════════════
         final String finalRef = bookingRef;
         Optional<Reservation> existingOpt = reservationRepository.findAll().stream()
@@ -85,85 +85,102 @@ public class ChannexWebhookServiceImpl implements ChannexWebhookService {
                 .findFirst();
 
         if (existingOpt.isPresent()) {
-            log.info("Booking {} already exists (reservation #{}). Skipping.", bookingRef, existingOpt.get().getId());
+            log.info("Booking reference {} already exists (Reservation #{}). Skipping creation.", bookingRef, existingOpt.get().getId());
             return StandardResponse.success("Booking reference already processed");
         }
 
         // ══════════════════════════════════════════════════════════════════════
-        // Build ReservationRequest
+        // 5. Calculate Check-Out Date & Stay Duration
         // ══════════════════════════════════════════════════════════════════════
-        ReservationRequest req = new ReservationRequest();
+        LocalDate checkIn = LocalDate.parse(arrivalDate.trim());
+        String departureDate = resolveDepartureDate(root);
+        int countOfNights = resolveInt(root, "count_of_nights", "nights");
 
-        // Dates
-        LocalDate checkIn = LocalDate.parse(arrivalDate);
         LocalDate checkOut;
         if (departureDate != null && !departureDate.isBlank()) {
-            checkOut = LocalDate.parse(departureDate);
+            checkOut = LocalDate.parse(departureDate.trim());
         } else {
             checkOut = checkIn.plusDays(countOfNights > 0 ? countOfNights : 1);
         }
-        req.setCheckInDate(checkIn);
-        req.setCheckOutDate(checkOut);
 
-        // Guest — customer_name is a flat string like "Chanex Booking booking"
-        String safeName = (customerName != null && !customerName.isBlank()) ? customerName.trim() : "OTA Guest";
-        String[] nameParts = safeName.split("\\s+", 2);
+        if (!checkOut.isAfter(checkIn)) {
+            checkOut = checkIn.plusDays(1);
+        }
+
+        // ══════════════════════════════════════════════════════════════════════
+        // 6. Guest Details Extraction & Matching
+        // ══════════════════════════════════════════════════════════════════════
+        String fullName = resolveCustomerName(root);
+        String[] nameParts = fullName.split("\\s+", 2);
         String firstName = nameParts[0];
         String lastName = nameParts.length > 1 ? nameParts[1] : "Guest";
 
-        String email = (customerEmail != null && !customerEmail.isBlank())
-                ? customerEmail
-                : "ota_" + finalRef.replaceAll("[^a-zA-Z0-9]", "") + "@channex.booking";
+        String customerEmail = resolveCustomerEmail(root, finalRef);
+        String customerPhone = resolveCustomerPhone(root);
 
-        Optional<Guest> existingGuest = guestRepository.findByEmailAndIsDeletedFalse(email);
+        ReservationRequest req = new ReservationRequest();
+        req.setCheckInDate(checkIn);
+        req.setCheckOutDate(checkOut);
+        req.setHotelId(1L);
+
+        Optional<Guest> existingGuest = guestRepository.findByEmailAndIsDeletedFalse(customerEmail);
         if (existingGuest.isPresent()) {
             req.setGuestId(existingGuest.get().getId());
         } else {
             GuestRequest gd = new GuestRequest();
             gd.setFirstName(firstName);
             gd.setLastName(lastName);
-            gd.setEmail(email);
+            gd.setEmail(customerEmail);
             gd.setPhone(customerPhone != null ? customerPhone : "0000000000");
             req.setGuestDetails(gd);
         }
 
-        // Hotel
-        req.setHotelId(1L);
+        // ══════════════════════════════════════════════════════════════════════
+        // 7. Room Allocation & Room Matching
+        // ══════════════════════════════════════════════════════════════════════
+        int countOfRooms = resolveInt(root, "count_of_rooms", "rooms");
+        if (countOfRooms <= 0) countOfRooms = 1;
 
-        // Room Allocation
-        List<Room> availableRooms = roomRepository.findAvailableRooms(checkIn, checkOut);
-        List<Long> assignedRoomIds = new ArrayList<>();
-        for (int i = 0; i < countOfRooms && i < availableRooms.size(); i++) {
-            assignedRoomIds.add(availableRooms.get(i).getId());
-        }
+        List<Long> assignedRoomIds = allocateRooms(root, checkIn, checkOut, countOfRooms);
         if (assignedRoomIds.isEmpty()) {
-            log.error("No available rooms for booking {} (checkIn={}, checkOut={})", bookingRef, checkIn, checkOut);
+            log.error("Unable to allocate rooms for Channex booking {} (CheckIn={}, CheckOut={})", bookingRef, checkIn, checkOut);
             return StandardResponse.error("No available rooms for requested dates", "ROOM_MATCH_FAILED", null);
         }
         req.setRoomIds(assignedRoomIds);
 
-        // Occupancy
-        req.setNumberOfAdults(1);
-        req.setNumberOfChildren(0);
+        // ══════════════════════════════════════════════════════════════════════
+        // 8. Occupancy, Rate Plan & GST Tax Resolution
+        // ══════════════════════════════════════════════════════════════════════
+        int adults = resolveInt(root, "occupancy.adults", "adults_count", "adults");
+        int children = resolveInt(root, "occupancy.children", "children_count", "children");
+        req.setNumberOfAdults(adults > 0 ? adults : 1);
+        req.setNumberOfChildren(children >= 0 ? children : 0);
 
-        // Rate Plan
         RatePlan ratePlan = ratePlanRepository.findByIsActiveTrueOrderByDisplayOrderAsc().stream()
                 .findFirst().orElse(null);
         if (ratePlan == null) {
-            return StandardResponse.error("No active Rate Plan configured", "RATE_PLAN_MISSING", null);
+            return StandardResponse.error("No active Rate Plan configured in master", "RATE_PLAN_MISSING", null);
         }
         req.setRatePlanId(ratePlan.getId());
 
-        // Billing & Metadata
-        req.setGstPercent(0);
+        // GST Tax Rate: Default to 18% for HMS view screen alignment, or parse if provided
+        int gstPercent = resolveInt(root, "gst_percent", "tax_percent", "gst_rate");
+        if (gstPercent <= 0) {
+            gstPercent = 18; // Standard HMS FrontOffice GST rate
+        }
+        req.setGstPercent(gstPercent);
+
+        // Metadata
+        String otaName = resolveString(root, "ota_name", "ota");
+        String notes = resolveString(root, "notes", "special_requests");
         req.setBookingReference(bookingRef);
         req.setTravelAgentName(otaName != null ? otaName : "Channex");
         req.setBusinessSource("OTA - Channex");
         req.setMarketSegment("OTA");
         req.setNotes(notes);
 
-        log.info("Creating reservation: ref={}, guest={} {}, checkIn={}, checkOut={}, rooms={}",
-                bookingRef, firstName, lastName, checkIn, checkOut, assignedRoomIds);
+        log.info("Submitting reservation request: ref={}, guest={}, checkIn={}, checkOut={}, rooms={}, gst={}%",
+                bookingRef, fullName, checkIn, checkOut, assignedRoomIds, gstPercent);
 
         return reservationService.createReservation(req);
     }
@@ -176,15 +193,224 @@ public class ChannexWebhookServiceImpl implements ChannexWebhookService {
         if (existingOpt.isPresent()) {
             return reservationService.cancelReservation(existingOpt.get().getId());
         }
-        log.warn("Cancellation for non-existent reservation ref: {}", bookingRef);
+        log.warn("Cancellation received for non-existent reservation ref: {}", bookingRef);
         return StandardResponse.success("Reservation not found for cancellation, ignored");
     }
 
-    /** Safely read a text field from JsonNode, returning null if missing/empty */
-    private String getTextOrNull(JsonNode node, String field) {
-        JsonNode child = node.path(field);
-        if (child.isMissingNode() || child.isNull()) return null;
-        String val = child.asText();
-        return (val != null && !val.isBlank()) ? val : null;
+    // ══════════════════════════════════════════════════════════════════════════
+    // Helper Fallback Resolvers
+    // ══════════════════════════════════════════════════════════════════════════
+
+    private String resolveArrivalDate(JsonNode root) {
+        String val = findStringInNode(root, "arrival_date", "checkin_date", "check_in_date");
+        if (val != null) return val;
+
+        val = findStringInNode(root.path("payload"), "arrival_date", "checkin_date");
+        if (val != null) return val;
+
+        val = findStringInNode(root.path("booking"), "arrival_date", "checkin_date");
+        if (val != null) return val;
+
+        val = findStringInNode(root.path("payload").path("booking"), "arrival_date", "checkin_date");
+        if (val != null) return val;
+
+        val = findStringInNode(root.path("attributes"), "arrival_date", "checkin_date");
+        if (val != null) return val;
+
+        val = findStringInNode(root.path("data").path("attributes"), "arrival_date", "checkin_date");
+        if (val != null) return val;
+
+        if (root.path("rooms").isArray() && root.path("rooms").size() > 0) {
+            val = findStringInNode(root.path("rooms").get(0), "checkin_date", "arrival_date");
+            if (val != null) return val;
+        }
+
+        return null;
+    }
+
+    private String resolveDepartureDate(JsonNode root) {
+        String val = findStringInNode(root, "departure_date", "checkout_date", "check_out_date");
+        if (val != null) return val;
+
+        val = findStringInNode(root.path("payload"), "departure_date", "checkout_date");
+        if (val != null) return val;
+
+        val = findStringInNode(root.path("booking"), "departure_date", "checkout_date");
+        if (val != null) return val;
+
+        val = findStringInNode(root.path("payload").path("booking"), "departure_date", "checkout_date");
+        if (val != null) return val;
+
+        val = findStringInNode(root.path("attributes"), "departure_date", "checkout_date");
+        if (val != null) return val;
+
+        if (root.path("rooms").isArray() && root.path("rooms").size() > 0) {
+            val = findStringInNode(root.path("rooms").get(0), "checkout_date", "departure_date");
+            if (val != null) return val;
+        }
+
+        return null;
+    }
+
+    private String resolveBookingReference(JsonNode root) {
+        String val = findStringInNode(root, "booking_unique_id", "unique_id", "ota_code", "ota_reservation_code", "booking_id", "id");
+        if (val != null) return val;
+
+        val = findStringInNode(root.path("payload"), "booking_unique_id", "unique_id", "ota_reservation_code", "booking_id");
+        if (val != null) return val;
+
+        val = findStringInNode(root.path("booking"), "booking_unique_id", "unique_id", "ota_reservation_code", "booking_id");
+        if (val != null) return val;
+
+        val = findStringInNode(root.path("payload").path("booking"), "booking_unique_id", "unique_id", "ota_reservation_code", "id");
+        if (val != null) return val;
+
+        val = findStringInNode(root.path("attributes"), "booking_unique_id", "ota_reservation_code", "booking_id");
+        if (val != null) return val;
+
+        return null;
+    }
+
+    private String resolveCustomerName(JsonNode root) {
+        String name = findStringInNode(root, "customer_name", "guest_name", "billing_name");
+        if (name != null) return name;
+
+        JsonNode customerNode = root.path("customer");
+        if (customerNode.isMissingNode() || customerNode.isNull()) {
+            customerNode = root.path("payload").path("booking").path("customer");
+        }
+
+        if (!customerNode.isMissingNode() && !customerNode.isNull()) {
+            String firstName = findStringInNode(customerNode, "name", "first_name");
+            String lastName = findStringInNode(customerNode, "surname", "last_name");
+            if (firstName != null && lastName != null) return firstName.trim() + " " + lastName.trim();
+            if (firstName != null) return firstName.trim();
+            if (lastName != null) return lastName.trim();
+        }
+
+        return "OTA Guest";
+    }
+
+    private String resolveCustomerEmail(JsonNode root, String bookingRef) {
+        String email = findStringInNode(root, "customer_email", "email", "mail");
+        if (email != null) return email;
+
+        JsonNode customerNode = root.path("customer");
+        if (!customerNode.isMissingNode() && !customerNode.isNull()) {
+            email = findStringInNode(customerNode, "email", "mail");
+            if (email != null) return email;
+        }
+
+        return "ota_" + bookingRef.replaceAll("[^a-zA-Z0-9]", "") + "@channex.booking";
+    }
+
+    private String resolveCustomerPhone(JsonNode root) {
+        String phone = findStringInNode(root, "customer_phone", "phone", "mobile");
+        if (phone != null) return phone;
+
+        JsonNode customerNode = root.path("customer");
+        if (!customerNode.isMissingNode() && !customerNode.isNull()) {
+            phone = findStringInNode(customerNode, "phone", "mobile");
+            if (phone != null) return phone;
+        }
+
+        return "0000000000";
+    }
+
+    private String resolveString(JsonNode root, String... fields) {
+        String val = findStringInNode(root, fields);
+        if (val != null) return val;
+        val = findStringInNode(root.path("payload"), fields);
+        if (val != null) return val;
+        val = findStringInNode(root.path("booking"), fields);
+        if (val != null) return val;
+        val = findStringInNode(root.path("payload").path("booking"), fields);
+        if (val != null) return val;
+        return findStringInNode(root.path("attributes"), fields);
+    }
+
+    private int resolveInt(JsonNode root, String... fields) {
+        for (String f : fields) {
+            JsonNode n = resolveNodeByPath(root, f);
+            if (n != null && n.isValueNode()) return n.asInt(0);
+        }
+        return 0;
+    }
+
+    private JsonNode resolveNodeByPath(JsonNode root, String path) {
+        if (root == null || root.isMissingNode()) return null;
+        if (path.contains(".")) {
+            String[] parts = path.split("\\.");
+            JsonNode current = root;
+            for (String p : parts) {
+                current = current.path(p);
+                if (current.isMissingNode() || current.isNull()) break;
+            }
+            if (current != null && !current.isMissingNode() && !current.isNull()) return current;
+        } else {
+            JsonNode child = root.path(path);
+            if (!child.isMissingNode() && !child.isNull()) return child;
+        }
+        return null;
+    }
+
+    private String findStringInNode(JsonNode node, String... keys) {
+        if (node == null || node.isMissingNode() || node.isNull()) return null;
+        for (String k : keys) {
+            JsonNode child = node.path(k);
+            if (!child.isMissingNode() && !child.isNull() && child.isValueNode()) {
+                String text = child.asText();
+                if (text != null && !text.isBlank()) return text;
+            }
+        }
+        return null;
+    }
+
+    private List<Long> allocateRooms(JsonNode root, LocalDate checkIn, LocalDate checkOut, int countOfRooms) {
+        List<Room> availableRooms = roomRepository.findAvailableRooms(checkIn, checkOut);
+        List<Long> assigned = new ArrayList<>();
+
+        // 1. Try matching by room_type_name or title if rooms array exists in payload
+        JsonNode roomsArray = root.path("rooms");
+        if (roomsArray.isMissingNode()) roomsArray = root.path("payload").path("booking").path("rooms");
+
+        if (roomsArray.isArray() && roomsArray.size() > 0) {
+            for (JsonNode rNode : roomsArray) {
+                String title = findStringInNode(rNode, "title", "room_type", "room_type_name", "name");
+                Room matchedRoom = null;
+                if (title != null && !title.isBlank()) {
+                    Optional<RoomType> matchedType = roomTypeRepository.findByNameIgnoreCaseAndIsActiveTrue(title.trim());
+                    if (matchedType.isPresent()) {
+                        Long typeId = matchedType.get().getId();
+                        matchedRoom = availableRooms.stream()
+                                .filter(r -> r.getRoomType() != null && r.getRoomType().getId().equals(typeId))
+                                .filter(r -> !assigned.contains(r.getId()))
+                                .findFirst().orElse(null);
+                    }
+                }
+                if (matchedRoom == null) {
+                    matchedRoom = availableRooms.stream()
+                            .filter(r -> !assigned.contains(r.getId()))
+                            .findFirst().orElse(null);
+                }
+                if (matchedRoom != null) {
+                    assigned.add(matchedRoom.getId());
+                }
+            }
+        }
+
+        // 2. Fallback: allocate available rooms up to countOfRooms
+        while (assigned.size() < countOfRooms) {
+            Room fallback = availableRooms.stream()
+                    .filter(r -> !assigned.contains(r.getId()))
+                    .findFirst().orElse(null);
+            if (fallback != null) {
+                assigned.add(fallback.getId());
+            } else {
+                break;
+            }
+        }
+
+        return assigned;
     }
 }
