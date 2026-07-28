@@ -60,6 +60,6 @@ eureka:
 channex:
   api:
     url: ${CHANNEX_API_URL:https://staging.channex.io/api/v1}
-    key: ${CHANNEX_API_KEY:}
+    key: ${CHANNEX_API_KEY:uUvCy9UqkQ4cepNKuCu6+aeCkZdrCJrkchegSyvz6/4QK/6K7SoF92ZYzXHknppa}
     property-id: ${CHANNEX_PROPERTY_ID:3ac4f491-34c0-462e-95fd-acdf20006bdb}
 

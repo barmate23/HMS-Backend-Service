@@ -132,7 +132,7 @@ public class ChannexSyncServiceImpl implements ChannexSyncService {
         String targetPropertyId = (propertyId != null && !propertyId.isBlank()) ? propertyId : configuredPropertyId;
 
         try {
-            String url = channexBaseUrl + "/ari";
+            String url = channexBaseUrl + "/availability";
             HttpHeaders headers = buildHeaders(apiKey);
 
             ObjectNode rootNode = objectMapper.createObjectNode();
@@ -203,7 +203,7 @@ public class ChannexSyncServiceImpl implements ChannexSyncService {
             ObjectNode rootNode = objectMapper.createObjectNode();
             rootNode.set("values", valuesArray);
 
-            String url = channexBaseUrl + "/ari";
+            String url = channexBaseUrl + "/availability";
             HttpHeaders headers = buildHeaders(apiKey);
             HttpEntity<String> requestEntity = new HttpEntity<>(objectMapper.writeValueAsString(rootNode), headers);
 
