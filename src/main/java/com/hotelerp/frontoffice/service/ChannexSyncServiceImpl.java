@@ -5,7 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.hotelerp.frontoffice.common.StandardResponse;
+import com.hotelerp.frontoffice.entity.Booking;
+import com.hotelerp.frontoffice.entity.Room;
 import com.hotelerp.frontoffice.entity.RoomType;
+import com.hotelerp.frontoffice.repository.BookingRepository;
 import com.hotelerp.frontoffice.repository.RoomRepository;
 import com.hotelerp.frontoffice.repository.RoomTypeRepository;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +30,7 @@ public class ChannexSyncServiceImpl implements ChannexSyncService {
     private final ChannexWebhookService channexWebhookService;
     private final RoomTypeRepository roomTypeRepository;
     private final RoomRepository roomRepository;
+    private final BookingRepository bookingRepository;
     private final ObjectMapper objectMapper;
 
     @Value("${channex.api.url:https://staging.channex.io/api/v1}")
@@ -173,58 +177,160 @@ public class ChannexSyncServiceImpl implements ChannexSyncService {
             return StandardResponse.error("Channex API Key is required", "MISSING_API_KEY", null);
         }
 
-        if (startDate == null) startDate = LocalDate.now();
-        if (endDate == null) endDate = startDate.plusDays(30);
+        String propId = configuredPropertyId;
+        final LocalDate start = startDate != null ? startDate : LocalDate.now();
+        final LocalDate end = endDate != null ? endDate : start.plusDays(30);
 
         try {
+            // 1. Fetch active HMS Room Types
             List<RoomType> activeRoomTypes = roomTypeRepository.findAll().stream()
                     .filter(rt -> Boolean.TRUE.equals(rt.getIsActive()))
                     .toList();
 
-            ArrayNode valuesArray = objectMapper.createArrayNode();
-
-            for (RoomType rt : activeRoomTypes) {
-                // Calculate available count for this room type
-                int availableRoomsCount = roomRepository.findAvailableRooms(startDate, endDate).stream()
-                        .filter(r -> r.getRoomType() != null && r.getRoomType().getId().equals(rt.getId()))
-                        .toList().size();
-
-                BigDecimal basePrice = rt.getBasePricePerNight() != null ? rt.getBasePricePerNight() : BigDecimal.valueOf(1000);
-
-                ObjectNode ariEntry = objectMapper.createObjectNode();
-                ariEntry.put("property_id", configuredPropertyId);
-                ariEntry.put("date_from", startDate.toString());
-                ariEntry.put("date_to", endDate.toString());
-                ariEntry.put("availability", availableRoomsCount);
-                ariEntry.put("rate", basePrice);
-                valuesArray.add(ariEntry);
+            // 2. Fetch Channex Room Types & Rate Plans
+            JsonNode channexRoomTypes = getChannexRoomTypes(propId, apiKey);
+            Map<String, String> channexRtMap = new HashMap<>(); // lower_title -> channex_room_type_id
+            if (channexRoomTypes.has("data") && channexRoomTypes.get("data").isArray()) {
+                for (JsonNode item : channexRoomTypes.get("data")) {
+                    String id = item.path("id").asText(null);
+                    String title = item.path("attributes").path("title").asText(null);
+                    if (id != null && title != null) {
+                        channexRtMap.put(title.trim().toLowerCase(), id);
+                    }
+                }
             }
 
-            ObjectNode rootNode = objectMapper.createObjectNode();
-            rootNode.set("values", valuesArray);
+            JsonNode channexRatePlans = getChannexRatePlans(propId, apiKey);
+            Map<String, String> channexRpMap = new HashMap<>(); // channex_room_type_id -> channex_rate_plan_id
+            if (channexRatePlans.has("data") && channexRatePlans.get("data").isArray()) {
+                for (JsonNode item : channexRatePlans.get("data")) {
+                    String rpId = item.path("id").asText(null);
+                    String rtId = item.path("attributes").path("room_type_id").asText(null);
+                    if (rtId == null || rtId.isBlank()) {
+                        rtId = item.path("relationships").path("room_type").path("data").path("id").asText(null);
+                    }
+                    if (rtId != null && rpId != null) {
+                        channexRpMap.put(rtId, rpId);
+                    }
+                }
+            }
 
-            String url = channexBaseUrl + "/availability";
-            HttpHeaders headers = buildHeaders(apiKey);
-            HttpEntity<String> requestEntity = new HttpEntity<>(objectMapper.writeValueAsString(rootNode), headers);
+            // 3. Fetch active bookings in range from HMS Database
+            List<Booking> bookingsInRange = bookingRepository.findBookingsInRange(start, end);
 
-            log.info("Syncing HMS availability to Channex for {} room types ({} to {})", activeRoomTypes.size(), startDate, endDate);
-            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, requestEntity, String.class);
+            // 4. Fetch all active HMS rooms
+            List<Room> allRooms = roomRepository.findAll().stream()
+                    .filter(r -> Boolean.TRUE.equals(r.getIsActive()) && !Boolean.TRUE.equals(r.getIsDeleted()))
+                    .toList();
 
-            if (response.getStatusCode().is2xxSuccessful()) {
-                return StandardResponse.success(Map.of(
-                        "roomTypesSynced", activeRoomTypes.size(),
-                        "startDate", startDate.toString(),
-                        "endDate", endDate.toString(),
-                        "channexResponse", response.getBody()
-                ), "HMS Availability & Rates synced to Channex successfully");
+            ArrayNode valuesArray = objectMapper.createArrayNode();
+            int totalUpdatesPushed = 0;
+            List<Map<String, Object>> summaryList = new ArrayList<>();
+
+            for (RoomType rt : activeRoomTypes) {
+                String title = rt.getName() != null ? rt.getName().trim().toLowerCase() : "";
+                String channexRtId = channexRtMap.get(title);
+                if (channexRtId == null) continue;
+
+                String channexRpId = channexRpMap.get(channexRtId);
+                BigDecimal baseRate = rt.getBasePricePerNight() != null ? rt.getBasePricePerNight() : BigDecimal.valueOf(1000);
+
+                // Total physical rooms in HMS for this RoomType
+                int totalRoomCount = allRooms.stream()
+                        .filter(r -> r.getRoomType() != null && r.getRoomType().getId().equals(rt.getId()))
+                        .toList().size();
+                if (totalRoomCount == 0) totalRoomCount = 10; // Default count if physical rooms not created yet
+
+                // Filter bookings for this room type
+                List<Booking> rtBookings = bookingsInRange.stream()
+                        .filter(b -> b.getRoom() != null && b.getRoom().getRoomType() != null && b.getRoom().getRoomType().getId().equals(rt.getId()))
+                        .toList();
+
+                // Compute day-by-day availability and group contiguous days
+                LocalDate blockStart = start;
+                int currentBlockAvailability = -1;
+
+                for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
+                    final LocalDate currentDate = d;
+                    long bookedOnDate = rtBookings.stream()
+                            .filter(b -> (b.getCheckInDate().isBefore(currentDate) || b.getCheckInDate().isEqual(currentDate))
+                                      && b.getCheckOutDate().isAfter(currentDate))
+                            .count();
+
+                    int dayAvailability = Math.max(0, totalRoomCount - (int) bookedOnDate);
+
+                    if (currentBlockAvailability == -1) {
+                        currentBlockAvailability = dayAvailability;
+                        blockStart = d;
+                    } else if (dayAvailability != currentBlockAvailability) {
+                        // End current block and add to payload
+                        LocalDate blockEnd = d.minusDays(1);
+                        valuesArray.add(buildAriNode(propId, channexRtId, channexRpId, blockStart, blockEnd, currentBlockAvailability, baseRate));
+                        totalUpdatesPushed++;
+                        blockStart = d;
+                        currentBlockAvailability = dayAvailability;
+                    }
+                }
+
+                // Push remaining block
+                if (currentBlockAvailability != -1) {
+                    valuesArray.add(buildAriNode(propId, channexRtId, channexRpId, blockStart, end, currentBlockAvailability, baseRate));
+                    totalUpdatesPushed++;
+                }
+
+                summaryList.add(Map.of(
+                        "roomType", rt.getName(),
+                        "totalHmsRooms", totalRoomCount,
+                        "baseRate", baseRate
+                ));
+            }
+
+            if (valuesArray.size() > 0) {
+                ObjectNode rootNode = objectMapper.createObjectNode();
+                rootNode.set("values", valuesArray);
+
+                String url = channexBaseUrl + "/availability";
+                HttpHeaders headers = buildHeaders(apiKey);
+                HttpEntity<String> requestEntity = new HttpEntity<>(objectMapper.writeValueAsString(rootNode), headers);
+
+                log.info("Syncing HMS database availability to Channex for {} room types ({} updates, {} to {})",
+                        activeRoomTypes.size(), totalUpdatesPushed, start, end);
+                ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, requestEntity, String.class);
+
+                if (response.getStatusCode().is2xxSuccessful()) {
+                    return StandardResponse.success(Map.of(
+                            "roomTypesSynced", activeRoomTypes.size(),
+                            "ariUpdatesPushed", totalUpdatesPushed,
+                            "startDate", start.toString(),
+                            "endDate", end.toString(),
+                            "summary", summaryList
+                    ), "Database room availability & rates synced to Channex successfully");
+                } else {
+                    return StandardResponse.error("Channex ARI returned status: " + response.getStatusCode(), "SYNC_ERROR", response.getBody());
+                }
             } else {
-                return StandardResponse.error("Channex ARI returned status: " + response.getStatusCode(), "SYNC_ERROR", response.getBody());
+                return StandardResponse.success(Map.of("roomTypesSynced", 0), "No active Room Types mapped to Channex");
             }
 
         } catch (Exception e) {
             log.error("Error syncing HMS availability to Channex: ", e);
             return StandardResponse.error("Error syncing availability: " + e.getMessage(), "SYNC_EXCEPTION", e.toString());
         }
+    }
+
+    private ObjectNode buildAriNode(String propId, String roomTypeId, String ratePlanId,
+                                    LocalDate dateFrom, LocalDate dateTo, int availability, BigDecimal rate) {
+        ObjectNode node = objectMapper.createObjectNode();
+        node.put("property_id", propId);
+        node.put("room_type_id", roomTypeId);
+        if (ratePlanId != null && !ratePlanId.isBlank()) {
+            node.put("rate_plan_id", ratePlanId);
+        }
+        node.put("date_from", dateFrom.toString());
+        node.put("date_to", dateTo.toString());
+        node.put("availability", availability);
+        node.put("rate", rate != null ? rate : BigDecimal.valueOf(1000));
+        return node;
     }
 
     @Override
