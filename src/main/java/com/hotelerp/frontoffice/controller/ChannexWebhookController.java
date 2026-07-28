@@ -25,7 +25,14 @@ public class ChannexWebhookController {
     public ResponseEntity<StandardResponse<?>> handleChannexBookingWebhook(
             @RequestBody ChannexWebhookPayload payload) {
         log.info("Received POST webhook request from Channex Channel Manager");
-        StandardResponse<?> response = channexWebhookService.processBookingWebhook(payload);
-        return ResponseEntity.ok(response);
+        try {
+            StandardResponse<?> response = channexWebhookService.processBookingWebhook(payload);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Unhandled error processing Channex webhook: ", e);
+            return ResponseEntity.status(500).body(
+                    StandardResponse.error("Error: " + e.getMessage(), "CHANNEX_WEBHOOK_ERROR", e.toString())
+            );
+        }
     }
 }
