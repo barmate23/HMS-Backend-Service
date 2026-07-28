@@ -80,9 +80,9 @@ public class ChannexSyncController {
     }
 
     /**
-     * Auto-Sync all HMS active RoomTypes availability & base rates to Channex for a date range.
+     * Auto-Sync all HMS active RoomTypes real-time database availability & base rates to Channex for a date range.
      */
-    @PostMapping("/ari/sync-hms")
+    @PostMapping({"/ari/sync-hms", "/availability/sync"})
     public ResponseEntity<StandardResponse<?>> syncHmsAvailabilityToChannex(
             @RequestParam(value = "startDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(value = "endDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
@@ -90,7 +90,7 @@ public class ChannexSyncController {
             @RequestParam(value = "apiKey", required = false) String apiKeyParam) {
 
         String apiKey = resolveKey(apiKeyHeader, apiKeyParam);
-        log.info("Syncing all HMS room availability to Channex...");
+        log.info("Syncing all HMS database room availability to Channex: startDate={}, endDate={}", startDate, endDate);
         StandardResponse<?> response = channexSyncService.syncHmsAvailabilityToChannex(startDate, endDate, apiKey);
         return ResponseEntity.ok(response);
     }
