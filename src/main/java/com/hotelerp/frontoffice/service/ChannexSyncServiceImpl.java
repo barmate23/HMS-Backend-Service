@@ -269,7 +269,7 @@ public class ChannexSyncServiceImpl implements ChannexSyncService {
     }
 
     @Override
-    public StandardResponse<?> createRatePlanInChannex(String title, String roomTypeId, String currency, String propertyId, String apiKeyOverride) {
+    public StandardResponse<?> createRatePlanInChannex(String title, String roomTypeId, BigDecimal rate, String currency, String propertyId, String apiKeyOverride) {
         String apiKey = resolveApiKey(apiKeyOverride);
         if (apiKey == null || apiKey.isBlank()) {
             return StandardResponse.error("Channex API Key is required", "MISSING_API_KEY", null);
@@ -289,10 +289,18 @@ public class ChannexSyncServiceImpl implements ChannexSyncService {
             ratePlanNode.put("currency", (currency != null && !currency.isBlank()) ? currency : "INR");
             ratePlanNode.put("sell_mode", "per_room");
 
+            ArrayNode optionsArray = objectMapper.createArrayNode();
+            ObjectNode optionNode = objectMapper.createObjectNode();
+            optionNode.put("occupancy", 2);
+            optionNode.put("is_primary", true);
+            optionNode.put("rate", (rate != null ? rate : BigDecimal.valueOf(1000)).toPlainString());
+            optionsArray.add(optionNode);
+            ratePlanNode.set("options", optionsArray);
+
             root.set("rate_plan", ratePlanNode);
 
             HttpEntity<String> requestEntity = new HttpEntity<>(objectMapper.writeValueAsString(root), headers);
-            log.info("Creating Rate Plan in Channex: title={}, roomTypeId={}, propertyId={}", title, roomTypeId, propId);
+            log.info("Creating Rate Plan in Channex: title={}, roomTypeId={}, propertyId={}, rate={}", title, roomTypeId, propId, rate);
 
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, requestEntity, String.class);
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
@@ -317,47 +325,166 @@ public class ChannexSyncServiceImpl implements ChannexSyncService {
         String propId = (propertyId != null && !propertyId.isBlank()) ? propertyId : configuredPropertyId;
 
         try {
-            // 1. Fetch existing Room Types in Channex
-            JsonNode existingChannexRoomTypes = getChannexRoomTypes(propId, apiKey);
-            Set<String> existingTitles = new HashSet<>();
-            if (existingChannexRoomTypes.has("data") && existingChannexRoomTypes.get("data").isArray()) {
-                for (JsonNode item : existingChannexRoomTypes.get("data")) {
-                    String t = item.path("attributes").path("title").asText(null);
-                    if (t != null) existingTitles.add(t.trim().toLowerCase());
-                }
-            }
-
-            // 2. Read active HMS Room Types
+            // 1. Read active HMS Room Types
             List<RoomType> hmsRoomTypes = roomTypeRepository.findAll().stream()
                     .filter(rt -> Boolean.TRUE.equals(rt.getIsActive()))
                     .toList();
+
+            // 2. Fetch existing Room Types in Channex
+            JsonNode existingChannexRoomTypes = getChannexRoomTypes(propId, apiKey);
+            Map<String, String> channexRoomTypeMap = new HashMap<>(); // title.toLowerCase() -> channex_room_type_id
+            if (existingChannexRoomTypes.has("data") && existingChannexRoomTypes.get("data").isArray()) {
+                for (JsonNode item : existingChannexRoomTypes.get("data")) {
+                    String id = item.path("id").asText(null);
+                    String title = item.path("attributes").path("title").asText(null);
+                    if (id != null && title != null) {
+                        channexRoomTypeMap.put(title.trim().toLowerCase(), id);
+                    }
+                }
+            }
 
             int createdRoomTypes = 0;
             List<String> createdNames = new ArrayList<>();
 
             for (RoomType rt : hmsRoomTypes) {
                 String title = rt.getName() != null ? rt.getName().trim() : "Room";
-                if (!existingTitles.contains(title.toLowerCase())) {
+                if (!channexRoomTypeMap.containsKey(title.toLowerCase())) {
+                    int count = roomRepository.findAll().stream()
+                            .filter(r -> r.getRoomType() != null && r.getRoomType().getId().equals(rt.getId()))
+                            .toList().size();
+                    if (count == 0) count = 10;
+                    int cap = rt.getCapacity() != null ? rt.getCapacity() : 2;
+
+                    StandardResponse<?> res = createRoomTypeInChannex(title, count, cap, propId, apiKey);
+                    if (res.isSuccess() && res.getData() != null) {
+                        createdRoomTypes++;
+                        createdNames.add(title);
+                        JsonNode resData = objectMapper.valueToTree(res.getData());
+                        String newId = resData.path("data").path("id").asText(resData.path("id").asText(null));
+                        if (newId != null) {
+                            channexRoomTypeMap.put(title.toLowerCase(), newId);
+                        }
+                    }
+                }
+            }
+
+            // Refetch Channex Room Types to ensure we have all IDs
+            existingChannexRoomTypes = getChannexRoomTypes(propId, apiKey);
+            if (existingChannexRoomTypes.has("data") && existingChannexRoomTypes.get("data").isArray()) {
+                for (JsonNode item : existingChannexRoomTypes.get("data")) {
+                    String id = item.path("id").asText(null);
+                    String title = item.path("attributes").path("title").asText(null);
+                    if (id != null && title != null) {
+                        channexRoomTypeMap.put(title.trim().toLowerCase(), id);
+                    }
+                }
+            }
+
+            // 3. Fetch existing Rate Plans in Channex
+            JsonNode existingChannexRatePlans = getChannexRatePlans(propId, apiKey);
+            Set<String> roomTypeIdsWithRatePlans = new HashSet<>();
+            Map<String, String> channexRatePlanMap = new HashMap<>(); // room_type_id -> rate_plan_id
+
+            if (existingChannexRatePlans.has("data") && existingChannexRatePlans.get("data").isArray()) {
+                for (JsonNode item : existingChannexRatePlans.get("data")) {
+                    String rpId = item.path("id").asText(null);
+                    String rtId = item.path("attributes").path("room_type_id").asText(null);
+                    if (rtId == null || rtId.isBlank()) {
+                        rtId = item.path("relationships").path("room_type").path("data").path("id").asText(null);
+                    }
+                    if (rtId != null && !rtId.isBlank()) {
+                        roomTypeIdsWithRatePlans.add(rtId);
+                        if (rpId != null) channexRatePlanMap.put(rtId, rpId);
+                    }
+                }
+            }
+
+            // 4. Create missing Rate Plans in Channex for EVERY Room Type
+            int createdRatePlans = 0;
+            List<String> ratePlanDetails = new ArrayList<>();
+
+            for (Map.Entry<String, String> entry : channexRoomTypeMap.entrySet()) {
+                String roomTypeTitle = entry.getKey();
+                String channexRoomTypeId = entry.getValue();
+
+                if (!roomTypeIdsWithRatePlans.contains(channexRoomTypeId)) {
+                    BigDecimal hmsRate = BigDecimal.valueOf(1000);
+                    for (RoomType rt : hmsRoomTypes) {
+                        if (rt.getName() != null && rt.getName().trim().equalsIgnoreCase(roomTypeTitle)) {
+                            if (rt.getBasePricePerNight() != null) hmsRate = rt.getBasePricePerNight();
+                            break;
+                        }
+                    }
+                    String ratePlanTitle = "Standard Rate (" + roomTypeTitle + ")";
+                    StandardResponse<?> rpRes = createRatePlanInChannex(ratePlanTitle, channexRoomTypeId, hmsRate, "INR", propId, apiKey);
+                    if (rpRes.isSuccess() && rpRes.getData() != null) {
+                        createdRatePlans++;
+                        ratePlanDetails.add(ratePlanTitle);
+                        JsonNode rpData = objectMapper.valueToTree(rpRes.getData());
+                        String newRpId = rpData.path("data").path("id").asText(rpData.path("id").asText(null));
+                        if (newRpId != null) channexRatePlanMap.put(channexRoomTypeId, newRpId);
+                    }
+                }
+            }
+
+            // 5. Push Room Rates & Availability (ARI) to Channex for all active Room Types
+            LocalDate startDate = LocalDate.now();
+            LocalDate endDate = startDate.plusDays(30);
+
+            ArrayNode valuesArray = objectMapper.createArrayNode();
+            int ratesPushedCount = 0;
+
+            for (RoomType rt : hmsRoomTypes) {
+                String title = rt.getName() != null ? rt.getName().trim().toLowerCase() : "";
+                String channexRtId = channexRoomTypeMap.get(title);
+
+                if (channexRtId != null) {
+                    BigDecimal rate = rt.getBasePricePerNight() != null ? rt.getBasePricePerNight() : BigDecimal.valueOf(1000);
                     int count = roomRepository.findAll().stream()
                             .filter(r -> r.getRoomType() != null && r.getRoomType().getId().equals(rt.getId()))
                             .toList().size();
                     if (count == 0) count = 10;
 
-                    int cap = rt.getCapacity() != null ? rt.getCapacity() : 2;
+                    String ratePlanId = channexRatePlanMap.get(channexRtId);
 
-                    StandardResponse<?> res = createRoomTypeInChannex(title, count, cap, propId, apiKey);
-                    if (res.isSuccess()) {
-                        createdRoomTypes++;
-                        createdNames.add(title);
-                    }
+                    ObjectNode ariEntry = objectMapper.createObjectNode();
+                    ariEntry.put("property_id", propId);
+                    ariEntry.put("room_type_id", channexRtId);
+                    if (ratePlanId != null) ariEntry.put("rate_plan_id", ratePlanId);
+                    ariEntry.put("date_from", startDate.toString());
+                    ariEntry.put("date_to", endDate.toString());
+                    ariEntry.put("availability", count);
+                    ariEntry.put("rate", rate);
+                    valuesArray.add(ariEntry);
+
+                    ratesPushedCount++;
                 }
             }
 
-            return StandardResponse.success(Map.of(
+            if (valuesArray.size() > 0) {
+                ObjectNode ariRootNode = objectMapper.createObjectNode();
+                ariRootNode.set("values", valuesArray);
+                String url = channexBaseUrl + "/availability";
+                HttpHeaders headers = buildHeaders(apiKey);
+                HttpEntity<String> requestEntity = new HttpEntity<>(objectMapper.writeValueAsString(ariRootNode), headers);
+                log.info("Pushing room rates and availability to Channex: url={}, payload={}", url, ariRootNode);
+                try {
+                    restTemplate.exchange(url, HttpMethod.POST, requestEntity, String.class);
+                } catch (Exception ex) {
+                    log.warn("ARI push notice: {}", ex.getMessage());
+                }
+            }
+
+            Map<String, Object> summary = Map.of(
                     "hmsRoomTypesTotal", hmsRoomTypes.size(),
                     "newRoomTypesCreatedInChannex", createdRoomTypes,
-                    "createdTitles", createdNames
-            ), "HMS Master synced to Channex successfully");
+                    "newRatePlansCreatedInChannex", createdRatePlans,
+                    "ratesAndAvailabilityPushed", ratesPushedCount,
+                    "createdRoomTypeTitles", createdNames,
+                    "createdRatePlanTitles", ratePlanDetails
+            );
+
+            return StandardResponse.success(summary, "HMS Master Room Types, Rate Plans & Room Rates synced to Channex successfully");
 
         } catch (Exception e) {
             log.error("Error syncing HMS master to Channex: ", e);

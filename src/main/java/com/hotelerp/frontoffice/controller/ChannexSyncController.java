@@ -120,14 +120,15 @@ public class ChannexSyncController {
     public ResponseEntity<StandardResponse<?>> createRatePlan(
             @RequestParam("title") String title,
             @RequestParam("roomTypeId") String roomTypeId,
+            @RequestParam(value = "rate", required = false) BigDecimal rate,
             @RequestParam(value = "currency", required = false) String currency,
             @RequestParam(value = "propertyId", required = false) String propertyId,
             @RequestHeader(value = "user-api-key", required = false) String apiKeyHeader,
             @RequestParam(value = "apiKey", required = false) String apiKeyParam) {
 
         String apiKey = resolveKey(apiKeyHeader, apiKeyParam);
-        log.info("Creating Rate Plan in Channex: title={}, roomTypeId={}", title, roomTypeId);
-        StandardResponse<?> response = channexSyncService.createRatePlanInChannex(title, roomTypeId, currency, propertyId, apiKey);
+        log.info("Creating Rate Plan in Channex: title={}, roomTypeId={}, rate={}", title, roomTypeId, rate);
+        StandardResponse<?> response = channexSyncService.createRatePlanInChannex(title, roomTypeId, rate, currency, propertyId, apiKey);
         return ResponseEntity.ok(response);
     }
 

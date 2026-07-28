@@ -39,7 +39,7 @@ public interface ChannexSyncService {
     /**
      * Creates a new Rate Plan in Channex directly from HMS for a specific Channex Room Type ID.
      */
-    StandardResponse<?> createRatePlanInChannex(String title, String roomTypeId, String currency, String propertyId, String apiKeyOverride);
+    StandardResponse<?> createRatePlanInChannex(String title, String roomTypeId, BigDecimal rate, String currency, String propertyId, String apiKeyOverride);
 
     /**
      * Auto-syncs local HMS Room Types & Rate Plans to Channex (creates missing ones directly in Channex).
