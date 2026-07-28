@@ -81,6 +81,7 @@ public class ReservationDetailResponse {
     private BigDecimal totalPrice; // before discount
     private BigDecimal totalDiscount;
     private BigDecimal grandTotal; // after discount
+    private Integer gstPercent;
     private BigDecimal paidAmount; // from successful payments
 
     // ── Notes ─────────────────────────────────────────────────────────────
