@@ -32,6 +32,21 @@ public interface ChannexSyncService {
     StandardResponse<?> syncHmsAvailabilityToChannex(LocalDate startDate, LocalDate endDate, String apiKeyOverride);
 
     /**
+     * Creates a new Room Type in Channex directly from HMS.
+     */
+    StandardResponse<?> createRoomTypeInChannex(String title, Integer countOfRooms, Integer capacity, String propertyId, String apiKeyOverride);
+
+    /**
+     * Creates a new Rate Plan in Channex directly from HMS for a specific Channex Room Type ID.
+     */
+    StandardResponse<?> createRatePlanInChannex(String title, String roomTypeId, String currency, String propertyId, String apiKeyOverride);
+
+    /**
+     * Auto-syncs local HMS Room Types & Rate Plans to Channex (creates missing ones directly in Channex).
+     */
+    StandardResponse<?> syncHmsMasterToChannex(String propertyId, String apiKeyOverride);
+
+    /**
      * Fetches properties from Channex API using key.
      */
     JsonNode getChannexProperties(String apiKeyOverride);

@@ -228,6 +228,144 @@ public class ChannexSyncServiceImpl implements ChannexSyncService {
     }
 
     @Override
+    public StandardResponse<?> createRoomTypeInChannex(String title, Integer countOfRooms, Integer capacity, String propertyId, String apiKeyOverride) {
+        String apiKey = resolveApiKey(apiKeyOverride);
+        if (apiKey == null || apiKey.isBlank()) {
+            return StandardResponse.error("Channex API Key is required", "MISSING_API_KEY", null);
+        }
+
+        String propId = (propertyId != null && !propertyId.isBlank()) ? propertyId : configuredPropertyId;
+
+        try {
+            String url = channexBaseUrl + "/room_types";
+            HttpHeaders headers = buildHeaders(apiKey);
+
+            ObjectNode root = objectMapper.createObjectNode();
+            ObjectNode roomTypeNode = objectMapper.createObjectNode();
+            roomTypeNode.put("property_id", propId);
+            roomTypeNode.put("title", title != null ? title.trim() : "Standard Room");
+            roomTypeNode.put("count_of_rooms", countOfRooms != null && countOfRooms > 0 ? countOfRooms : 10);
+            roomTypeNode.put("default_occupancy", capacity != null && capacity > 0 ? capacity : 2);
+            roomTypeNode.put("occ_adults", capacity != null && capacity > 0 ? capacity : 2);
+            roomTypeNode.put("occ_children", 1);
+            roomTypeNode.put("occ_infants", 1);
+
+            root.set("room_type", roomTypeNode);
+
+            HttpEntity<String> requestEntity = new HttpEntity<>(objectMapper.writeValueAsString(root), headers);
+            log.info("Creating Room Type in Channex: title={}, propertyId={}", title, propId);
+
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, requestEntity, String.class);
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                JsonNode createdNode = objectMapper.readTree(response.getBody());
+                return StandardResponse.success(createdNode, "Room Type created in Channex successfully");
+            } else {
+                return StandardResponse.error("Channex returned status: " + response.getStatusCode(), "CREATE_ROOM_TYPE_ERROR", response.getBody());
+            }
+        } catch (Exception e) {
+            log.error("Error creating Room Type in Channex: ", e);
+            return StandardResponse.error("Error creating Room Type: " + e.getMessage(), "CREATE_ROOM_TYPE_EXCEPTION", e.toString());
+        }
+    }
+
+    @Override
+    public StandardResponse<?> createRatePlanInChannex(String title, String roomTypeId, String currency, String propertyId, String apiKeyOverride) {
+        String apiKey = resolveApiKey(apiKeyOverride);
+        if (apiKey == null || apiKey.isBlank()) {
+            return StandardResponse.error("Channex API Key is required", "MISSING_API_KEY", null);
+        }
+
+        String propId = (propertyId != null && !propertyId.isBlank()) ? propertyId : configuredPropertyId;
+
+        try {
+            String url = channexBaseUrl + "/rate_plans";
+            HttpHeaders headers = buildHeaders(apiKey);
+
+            ObjectNode root = objectMapper.createObjectNode();
+            ObjectNode ratePlanNode = objectMapper.createObjectNode();
+            ratePlanNode.put("property_id", propId);
+            ratePlanNode.put("room_type_id", roomTypeId);
+            ratePlanNode.put("title", title != null ? title.trim() : "Standard Rate");
+            ratePlanNode.put("currency", (currency != null && !currency.isBlank()) ? currency : "INR");
+            ratePlanNode.put("sell_mode", "per_room");
+
+            root.set("rate_plan", ratePlanNode);
+
+            HttpEntity<String> requestEntity = new HttpEntity<>(objectMapper.writeValueAsString(root), headers);
+            log.info("Creating Rate Plan in Channex: title={}, roomTypeId={}, propertyId={}", title, roomTypeId, propId);
+
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, requestEntity, String.class);
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                JsonNode createdNode = objectMapper.readTree(response.getBody());
+                return StandardResponse.success(createdNode, "Rate Plan created in Channex successfully");
+            } else {
+                return StandardResponse.error("Channex returned status: " + response.getStatusCode(), "CREATE_RATE_PLAN_ERROR", response.getBody());
+            }
+        } catch (Exception e) {
+            log.error("Error creating Rate Plan in Channex: ", e);
+            return StandardResponse.error("Error creating Rate Plan: " + e.getMessage(), "CREATE_RATE_PLAN_EXCEPTION", e.toString());
+        }
+    }
+
+    @Override
+    public StandardResponse<?> syncHmsMasterToChannex(String propertyId, String apiKeyOverride) {
+        String apiKey = resolveApiKey(apiKeyOverride);
+        if (apiKey == null || apiKey.isBlank()) {
+            return StandardResponse.error("Channex API Key is required", "MISSING_API_KEY", null);
+        }
+
+        String propId = (propertyId != null && !propertyId.isBlank()) ? propertyId : configuredPropertyId;
+
+        try {
+            // 1. Fetch existing Room Types in Channex
+            JsonNode existingChannexRoomTypes = getChannexRoomTypes(propId, apiKey);
+            Set<String> existingTitles = new HashSet<>();
+            if (existingChannexRoomTypes.has("data") && existingChannexRoomTypes.get("data").isArray()) {
+                for (JsonNode item : existingChannexRoomTypes.get("data")) {
+                    String t = item.path("attributes").path("title").asText(null);
+                    if (t != null) existingTitles.add(t.trim().toLowerCase());
+                }
+            }
+
+            // 2. Read active HMS Room Types
+            List<RoomType> hmsRoomTypes = roomTypeRepository.findAll().stream()
+                    .filter(rt -> Boolean.TRUE.equals(rt.getIsActive()))
+                    .toList();
+
+            int createdRoomTypes = 0;
+            List<String> createdNames = new ArrayList<>();
+
+            for (RoomType rt : hmsRoomTypes) {
+                String title = rt.getName() != null ? rt.getName().trim() : "Room";
+                if (!existingTitles.contains(title.toLowerCase())) {
+                    int count = roomRepository.findAll().stream()
+                            .filter(r -> r.getRoomType() != null && r.getRoomType().getId().equals(rt.getId()))
+                            .toList().size();
+                    if (count == 0) count = 10;
+
+                    int cap = rt.getCapacity() != null ? rt.getCapacity() : 2;
+
+                    StandardResponse<?> res = createRoomTypeInChannex(title, count, cap, propId, apiKey);
+                    if (res.isSuccess()) {
+                        createdRoomTypes++;
+                        createdNames.add(title);
+                    }
+                }
+            }
+
+            return StandardResponse.success(Map.of(
+                    "hmsRoomTypesTotal", hmsRoomTypes.size(),
+                    "newRoomTypesCreatedInChannex", createdRoomTypes,
+                    "createdTitles", createdNames
+            ), "HMS Master synced to Channex successfully");
+
+        } catch (Exception e) {
+            log.error("Error syncing HMS master to Channex: ", e);
+            return StandardResponse.error("Error syncing HMS master: " + e.getMessage(), "MASTER_SYNC_EXCEPTION", e.toString());
+        }
+    }
+
+    @Override
     public JsonNode getChannexProperties(String apiKeyOverride) {
         return fetchJsonFromChannex("/properties", apiKeyOverride);
     }

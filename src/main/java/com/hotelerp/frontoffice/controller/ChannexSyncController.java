@@ -96,6 +96,57 @@ public class ChannexSyncController {
     }
 
     /**
+     * Create a new Room Type directly in Channex.
+     */
+    @PostMapping("/room-type/create")
+    public ResponseEntity<StandardResponse<?>> createRoomType(
+            @RequestParam("title") String title,
+            @RequestParam(value = "countOfRooms", required = false) Integer countOfRooms,
+            @RequestParam(value = "capacity", required = false) Integer capacity,
+            @RequestParam(value = "propertyId", required = false) String propertyId,
+            @RequestHeader(value = "user-api-key", required = false) String apiKeyHeader,
+            @RequestParam(value = "apiKey", required = false) String apiKeyParam) {
+
+        String apiKey = resolveKey(apiKeyHeader, apiKeyParam);
+        log.info("Creating Room Type in Channex: title={}", title);
+        StandardResponse<?> response = channexSyncService.createRoomTypeInChannex(title, countOfRooms, capacity, propertyId, apiKey);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Create a new Rate Plan directly in Channex for a Channex Room Type.
+     */
+    @PostMapping("/rate-plan/create")
+    public ResponseEntity<StandardResponse<?>> createRatePlan(
+            @RequestParam("title") String title,
+            @RequestParam("roomTypeId") String roomTypeId,
+            @RequestParam(value = "currency", required = false) String currency,
+            @RequestParam(value = "propertyId", required = false) String propertyId,
+            @RequestHeader(value = "user-api-key", required = false) String apiKeyHeader,
+            @RequestParam(value = "apiKey", required = false) String apiKeyParam) {
+
+        String apiKey = resolveKey(apiKeyHeader, apiKeyParam);
+        log.info("Creating Rate Plan in Channex: title={}, roomTypeId={}", title, roomTypeId);
+        StandardResponse<?> response = channexSyncService.createRatePlanInChannex(title, roomTypeId, currency, propertyId, apiKey);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Auto-sync all active HMS Room Types & Rate Plans to Channex (creates missing ones in Channex).
+     */
+    @PostMapping("/master/sync")
+    public ResponseEntity<StandardResponse<?>> syncMaster(
+            @RequestParam(value = "propertyId", required = false) String propertyId,
+            @RequestHeader(value = "user-api-key", required = false) String apiKeyHeader,
+            @RequestParam(value = "apiKey", required = false) String apiKeyParam) {
+
+        String apiKey = resolveKey(apiKeyHeader, apiKeyParam);
+        log.info("Syncing HMS Master (Room Types & Rate Plans) to Channex...");
+        StandardResponse<?> response = channexSyncService.syncHmsMasterToChannex(propertyId, apiKey);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * Fetch properties configured under your Channex account.
      */
     @GetMapping("/properties")
