@@ -101,6 +101,9 @@ public class Reservation {
     @Column(name = "bookingReference", length = 100)
     private String bookingReference;
 
+    @Column(name = "bookingFrom", length = 100)
+    private String bookingFrom;
+
     // ── Notes ─────────────────────────────────────────────────────────────
 
     @Column(name = "specialRequests", columnDefinition = "TEXT")

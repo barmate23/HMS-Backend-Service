@@ -175,6 +175,7 @@ public class ChannexWebhookServiceImpl implements ChannexWebhookService {
         String notes = resolveString(root, "notes", "special_requests");
         req.setBookingReference(bookingRef);
         req.setTravelAgentName(otaName != null ? otaName : "Channex");
+        req.setBookingFrom(otaName != null ? otaName : "Channex");
         req.setBusinessSource("OTA - Channex");
         req.setMarketSegment("OTA");
         req.setNotes(notes);

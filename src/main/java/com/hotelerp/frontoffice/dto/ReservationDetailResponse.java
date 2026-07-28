@@ -78,6 +78,7 @@ public class ReservationDetailResponse {
     private String businessSource;
     private String marketSegment;
     private String bookingReference;
+    private String bookingFrom;
     private BigDecimal totalPrice; // before discount
     private BigDecimal totalDiscount;
     private BigDecimal grandTotal; // after discount

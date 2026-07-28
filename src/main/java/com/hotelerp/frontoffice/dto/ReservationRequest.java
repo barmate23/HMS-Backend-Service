@@ -89,6 +89,7 @@ public class ReservationRequest {
     private String businessSource;
     private String marketSegment;
     private String bookingReference;
+    private String bookingFrom;
 
     // ── Notes ─────────────────────────────────────────────────────────────
 

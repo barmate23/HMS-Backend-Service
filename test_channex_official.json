@@ -1,0 +1,20 @@
+{
+  "currency": "INR",
+  "amount": "1500.00",
+  "channel_id": null,
+  "property_id": "3ac4f491-34c0-462e-95fd-acdf20006bdb",
+  "booking_id": "99999cbc-7fb4-4ad9-a0a5-d879b371c999",
+  "arrival_date": "2028-09-10",
+  "departure_date": "2028-09-12",
+  "booking_revision_id": "755284ed-9a5e-4a4b-ae13-eea5ea6d6bf8",
+  "live_feed_event_id": "e626c6a4-815d-42c5-9b23-254f0dcfaa8d",
+  "count_of_rooms": 1,
+  "booking_unique_id": "GBB-99887766",
+  "count_of_nights": 2,
+  "customer_name": "Official Channex Guest",
+  "customer_email": "official.channex@example.com",
+  "customer_phone": "9876543210",
+  "ota_code": "99887766",
+  "ota_name": "Booking.com",
+  "gst_percent": 18
+}
