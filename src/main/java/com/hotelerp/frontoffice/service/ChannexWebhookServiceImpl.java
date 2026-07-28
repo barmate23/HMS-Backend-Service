@@ -204,12 +204,15 @@ public class ChannexWebhookServiceImpl implements ChannexWebhookService {
         req.setGstPercent(gstPercent);
 
         // Metadata
-        String otaName = resolveString(root, "ota_name", "ota");
+        String resolvedBookingFrom = resolveString(root, "booking_from", "bookingFrom", "ota_name", "channel_name", "channel", "source", "system_source", "travel_agent_name", "ota");
+        if (resolvedBookingFrom == null || resolvedBookingFrom.isBlank()) {
+            resolvedBookingFrom = "Channex";
+        }
         String notes = resolveString(root, "notes", "special_requests");
         req.setBookingReference(bookingRef);
-        req.setTravelAgentName(otaName != null ? otaName : "Channex");
-        req.setBookingFrom(otaName != null ? otaName : "Channex");
-        req.setBusinessSource("OTA - Channex");
+        req.setTravelAgentName(resolvedBookingFrom);
+        req.setBookingFrom(resolvedBookingFrom);
+        req.setBusinessSource("OTA - " + resolvedBookingFrom);
         req.setMarketSegment("OTA");
         req.setNotes(notes);
 
