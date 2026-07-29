@@ -615,6 +615,93 @@ public class ChannexSyncServiceImpl implements ChannexSyncService {
         return fetchJsonFromChannex("/rate_plans?filter[property_id]=" + propId, apiKeyOverride);
     }
 
+    @Override
+    public StandardResponse<?> testConnection(String propertyId, String apiKeyOverride) {
+        String apiKey = resolveApiKey(apiKeyOverride);
+        if (apiKey == null || apiKey.isBlank()) {
+            return StandardResponse.error("Channex API Key is required to test connection", "MISSING_API_KEY", null);
+        }
+
+        String propId = (propertyId != null && !propertyId.isBlank()) ? propertyId : configuredPropertyId;
+        log.info("Testing connection to Channex with propertyId={}", propId);
+
+        try {
+            String url = channexBaseUrl + "/properties" + (propId != null && !propId.isBlank() ? "/" + propId : "");
+            HttpHeaders headers = buildHeaders(apiKey);
+            HttpEntity<Void> requestEntity = new HttpEntity<>(headers);
+
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, requestEntity, String.class);
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                JsonNode body = objectMapper.readTree(response.getBody());
+                Map<String, Object> result = Map.of(
+                        "connected", true,
+                        "status", response.getStatusCode().value(),
+                        "channexBaseUrl", channexBaseUrl,
+                        "propertyId", propId != null ? propId : "N/A",
+                        "response", body
+                );
+                return StandardResponse.success(result, "Channex connection test successful");
+            } else {
+                return StandardResponse.error("Channex connection test failed with status: " + response.getStatusCode(), "TEST_CONNECTION_FAILED", response.getBody());
+            }
+        } catch (Exception e) {
+            log.error("Error testing connection to Channex: ", e);
+            return StandardResponse.error("Channex connection test failed: " + e.getMessage(), "CONNECTION_ERROR", e.toString());
+        }
+    }
+
+    @Override
+    public StandardResponse<?> createChannelInChannex(String title, String channelCode, String propertyId, String groupId, Boolean isActive, String apiKeyOverride) {
+        String apiKey = resolveApiKey(apiKeyOverride);
+        if (apiKey == null || apiKey.isBlank()) {
+            return StandardResponse.error("Channex API Key is required to create a channel", "MISSING_API_KEY", null);
+        }
+
+        if (title == null || title.isBlank()) {
+            return StandardResponse.error("Channel title is required", "TITLE_REQUIRED", null);
+        }
+
+        String propId = (propertyId != null && !propertyId.isBlank()) ? propertyId : configuredPropertyId;
+        log.info("Creating Channel in Channex: title={}, channelCode={}, propertyId={}", title, channelCode, propId);
+
+        try {
+            ObjectNode channelData = objectMapper.createObjectNode();
+            channelData.put("title", title.trim());
+            channelData.put("property_id", propId);
+            if (channelCode != null && !channelCode.isBlank()) {
+                channelData.put("channel_code", channelCode.trim());
+            }
+            if (groupId != null && !groupId.isBlank()) {
+                channelData.put("group_id", groupId.trim());
+            }
+            channelData.put("is_active", isActive != null ? isActive : true);
+
+            ObjectNode rootNode = objectMapper.createObjectNode();
+            rootNode.set("channel", channelData);
+
+            String url = channexBaseUrl + "/channels";
+            HttpHeaders headers = buildHeaders(apiKey);
+            HttpEntity<String> requestEntity = new HttpEntity<>(objectMapper.writeValueAsString(rootNode), headers);
+
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, requestEntity, String.class);
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                JsonNode body = objectMapper.readTree(response.getBody());
+                return StandardResponse.success(body, "Channel created in Channex successfully");
+            } else {
+                return StandardResponse.error("Failed to create Channel in Channex: " + response.getStatusCode(), "CHANNEL_CREATE_FAILED", response.getBody());
+            }
+        } catch (Exception e) {
+            log.error("Error creating Channel in Channex: ", e);
+            return StandardResponse.error("Error creating channel: " + e.getMessage(), "CHANNEL_CREATE_EXCEPTION", e.toString());
+        }
+    }
+
+    @Override
+    public JsonNode getChannexChannels(String propertyId, String apiKeyOverride) {
+        String propId = (propertyId != null && !propertyId.isBlank()) ? propertyId : configuredPropertyId;
+        return fetchJsonFromChannex("/channels?filter[property_id]=" + propId, apiKeyOverride);
+    }
+
     // ══════════════════════════════════════════════════════════════════════════
     // Helper Methods
     // ══════════════════════════════════════════════════════════════════════════

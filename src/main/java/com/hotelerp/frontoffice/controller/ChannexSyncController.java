@@ -3,6 +3,7 @@ package com.hotelerp.frontoffice.controller;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.hotelerp.frontoffice.common.StandardResponse;
 import com.hotelerp.frontoffice.constants.ServiceConstants;
+import com.hotelerp.frontoffice.dto.channex.ChannexChannelRequest;
 import com.hotelerp.frontoffice.service.ChannexSyncService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +20,7 @@ import java.util.Map;
  *  - Pulling & Acknowledging Booking Revisions Feed
  *  - Pushing ARI (Availability, Rates, Restrictions) from HMS to Channex
  *  - Querying Channex Properties, Room Types, and Rate Plans
+ *  - Channel Creation & Test Connection APIs
  */
 @RestController
 @RequestMapping(ServiceConstants.RESERVATION_BASE_URL + "/channex")
@@ -27,6 +29,61 @@ import java.util.Map;
 public class ChannexSyncController {
 
     private final ChannexSyncService channexSyncService;
+
+    /**
+     * Test connection to Channex with API Key and Property ID.
+     */
+    @RequestMapping(value = "/test-connection", method = {RequestMethod.GET, RequestMethod.POST})
+    public ResponseEntity<StandardResponse<?>> testConnection(
+            @RequestParam(value = "propertyId", required = false) String propertyId,
+            @RequestHeader(value = "user-api-key", required = false) String apiKeyHeader,
+            @RequestParam(value = "apiKey", required = false) String apiKeyParam) {
+
+        String apiKey = resolveKey(apiKeyHeader, apiKeyParam);
+        log.info("Testing connection to Channex API...");
+        StandardResponse<?> response = channexSyncService.testConnection(propertyId, apiKey);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Create a new Channel mapping in Channex directly (supports JSON body or URL Query Params).
+     */
+    @PostMapping("/channel/create")
+    public ResponseEntity<StandardResponse<?>> createChannel(
+            @RequestBody(required = false) ChannexChannelRequest requestBody,
+            @RequestParam(value = "title", required = false) String titleParam,
+            @RequestParam(value = "channelCode", required = false) String channelCodeParam,
+            @RequestParam(value = "propertyId", required = false) String propertyIdParam,
+            @RequestParam(value = "groupId", required = false) String groupIdParam,
+            @RequestParam(value = "isActive", required = false) Boolean isActiveParam,
+            @RequestHeader(value = "user-api-key", required = false) String apiKeyHeader,
+            @RequestParam(value = "apiKey", required = false) String apiKeyParam) {
+
+        String title = requestBody != null && requestBody.getTitle() != null ? requestBody.getTitle() : titleParam;
+        String channelCode = requestBody != null && requestBody.getChannelCode() != null ? requestBody.getChannelCode() : channelCodeParam;
+        String propertyId = requestBody != null && requestBody.getPropertyId() != null ? requestBody.getPropertyId() : propertyIdParam;
+        String groupId = requestBody != null && requestBody.getGroupId() != null ? requestBody.getGroupId() : groupIdParam;
+        Boolean isActive = requestBody != null && requestBody.getIsActive() != null ? requestBody.getIsActive() : isActiveParam;
+        String apiKey = resolveKey(apiKeyHeader, requestBody != null ? requestBody.getApiKey() : null, apiKeyParam);
+
+        log.info("Creating Channel in Channex: title={}, channelCode={}", title, channelCode);
+        StandardResponse<?> response = channexSyncService.createChannelInChannex(title, channelCode, propertyId, groupId, isActive, apiKey);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Fetch Channels configured in Channex for property.
+     */
+    @GetMapping("/channels")
+    public ResponseEntity<JsonNode> getChannels(
+            @RequestParam(value = "propertyId", required = false) String propertyId,
+            @RequestHeader(value = "user-api-key", required = false) String apiKeyHeader,
+            @RequestParam(value = "apiKey", required = false) String apiKeyParam) {
+
+        String apiKey = resolveKey(apiKeyHeader, apiKeyParam);
+        JsonNode response = channexSyncService.getChannexChannels(propertyId, apiKey);
+        return ResponseEntity.ok(response);
+    }
 
     /**
      * Pull unacknowledged booking revisions from Channex Feed, save them as HMS reservations,
@@ -188,9 +245,10 @@ public class ChannexSyncController {
         return ResponseEntity.ok(response);
     }
 
-    private String resolveKey(String headerKey, String paramKey) {
-        if (headerKey != null && !headerKey.isBlank()) return headerKey.trim();
-        if (paramKey != null && !paramKey.isBlank()) return paramKey.trim();
+    private String resolveKey(String... keys) {
+        for (String k : keys) {
+            if (k != null && !k.isBlank()) return k.trim();
+        }
         return null;
     }
 }

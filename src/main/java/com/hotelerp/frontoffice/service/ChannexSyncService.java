@@ -60,4 +60,19 @@ public interface ChannexSyncService {
      * Fetches rate plans from Channex API for property.
      */
     JsonNode getChannexRatePlans(String propertyId, String apiKeyOverride);
+
+    /**
+     * Tests connection to Channex API using key and property ID.
+     */
+    StandardResponse<?> testConnection(String propertyId, String apiKeyOverride);
+
+    /**
+     * Creates a new Channel in Channex directly.
+     */
+    StandardResponse<?> createChannelInChannex(String title, String channelCode, String propertyId, String groupId, Boolean isActive, String apiKeyOverride);
+
+    /**
+     * Fetches channels configured in Channex for property.
+     */
+    JsonNode getChannexChannels(String propertyId, String apiKeyOverride);
 }
