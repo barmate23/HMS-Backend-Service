@@ -92,6 +92,7 @@ public class FrontOfficeDashboardResponse {
         private String billingMode;
         private String businessSource;
         private String marketSegment;
+        private String bookingFrom;
         private String specialRequests;
         private String notes;
     }

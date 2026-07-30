@@ -1,0 +1,28 @@
+{
+  "event": "booking",
+  "payload": {
+    "booking": {
+      "id": "test-chk-001",
+      "status": "new",
+      "ota_name": "Booking.com",
+      "ota_reservation_code": "TEST-BDC-12345",
+      "arrival_date": "2026-08-10",
+      "departure_date": "2026-08-12",
+      "amount": "5000.00",
+      "currency": "INR",
+      "customer": {
+        "name": "Test User",
+        "mail": "test.user@example.com",
+        "phone": "9998887770"
+      },
+      "rooms": [
+        {
+          "title": "Deluxe",
+          "adults_count": 2,
+          "children_count": 0
+        }
+      ],
+      "notes": "Testing Channex server endpoint"
+    }
+  }
+}

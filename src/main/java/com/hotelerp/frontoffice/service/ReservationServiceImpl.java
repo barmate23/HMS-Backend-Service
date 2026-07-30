@@ -68,15 +68,18 @@ public class ReservationServiceImpl implements ReservationService {
                         .findByFirstNameAndLastNameAndIsDeletedFalse(gd.getFirstName(), gd.getLastName());
                 if (guestOptional.isPresent()) {
                     guest = guestOptional.get();
+                    updateGuestFromDetails(guest, gd);
+                    guest = guestRepository.save(guest);
                 } else {
                     if (gd.getEmail() == null || gd.getEmail().isBlank()) {
                         return StandardResponse.error("Guest email is required", "GUEST_EMAIL_REQUIRED",
                                 "guestDetails.email", null);
                     }
-                    if (guestRepository.existsByEmailAndIsDeletedFalse(gd.getEmail())) {
-                        // Guest already exists — use the existing record instead of failing
-                        return StandardResponse.error("Duplicate email Id Already Exist", "DUPLICATE_EMAIL",
-                                "guestDetails.email", null);
+                    Optional<Guest> guestByEmail = guestRepository.findByEmailAndIsDeletedFalse(gd.getEmail());
+                    if (guestByEmail.isPresent()) {
+                        guest = guestByEmail.get();
+                        updateGuestFromDetails(guest, gd);
+                        guest = guestRepository.save(guest);
                     } else {
                         guest = buildInlineGuest(gd);
                         guest = guestRepository.save(guest);
@@ -138,8 +141,8 @@ public class ReservationServiceImpl implements ReservationService {
                     .billingMode(req.getBillingMode()).gstNumber(req.getGstNumber())
                     .organisationName(req.getOrganisationName()).travelAgentName(req.getTravelAgentName())
                     .businessSource(req.getBusinessSource()).marketSegment(req.getMarketSegment())
-                    .bookingReference(req.getBookingReference()).specialRequests(req.getSpecialRequests())
-                    .notes(req.getNotes()).isDeleted(false).build();
+                    .bookingReference(req.getBookingReference()).bookingFrom(req.getBookingFrom())
+                    .specialRequests(req.getSpecialRequests()).notes(req.getNotes()).isDeleted(false).build();
 
             Reservation savedReservation = reservationRepository.save(reservation);
 
@@ -302,6 +305,7 @@ public class ReservationServiceImpl implements ReservationService {
             reservation.setBusinessSource(req.getBusinessSource());
             reservation.setMarketSegment(req.getMarketSegment());
             reservation.setBookingReference(req.getBookingReference());
+            reservation.setBookingFrom(req.getBookingFrom());
             reservation.setSpecialRequests(req.getSpecialRequests());
             reservation.setNotes(req.getNotes());
             reservation.setUpdatedAt(LocalDateTime.now());
@@ -684,7 +688,10 @@ public class ReservationServiceImpl implements ReservationService {
                                 : null)
                 .guestFullName(
                         g != null
-                                ? g.getFirstName() + " " + g.getLastName()
+                                ? (g.getFirstName()
+                                        + (g.getLastName() != null && !g.getLastName().isBlank() ? " " + g.getLastName()
+                                                : ""))
+                                        .trim()
                                 : "Unknown")
                 .guestPhone(g != null ? g.getPhone() : null)
                 .guestBadge(g != null ? resolveGuestBadge(g) : null)
@@ -699,6 +706,7 @@ public class ReservationServiceImpl implements ReservationService {
                                 : null)
                 .numberOfRooms(r.getNumberOfRooms())
                 .rooms(roomSummaries)
+                .bookingFrom(r.getBookingFrom())
                 .grandTotal(grandTotal)
                 .gstPercent(gstPercent)
                 .paidAmount(paidAmount)
@@ -773,8 +781,9 @@ public class ReservationServiceImpl implements ReservationService {
                 .billingName(r.getBillingName()).billingAddress(r.getBillingAddress()).billingMode(r.getBillingMode())
                 .gstNumber(r.getGstNumber()).organisationName(r.getOrganisationName())
                 .travelAgentName(r.getTravelAgentName()).businessSource(r.getBusinessSource())
-                .marketSegment(r.getMarketSegment()).bookingReference(r.getBookingReference()).totalPrice(totalPrice)
-                .totalDiscount(totalDiscount).grandTotal(grandTotal).gstPercent(gstPercent).paidAmount(paidAmount)
+                .marketSegment(r.getMarketSegment()).bookingReference(r.getBookingReference())
+                .bookingFrom(r.getBookingFrom()).totalPrice(totalPrice).totalDiscount(totalDiscount)
+                .grandTotal(grandTotal).gstPercent(gstPercent).paidAmount(paidAmount)
                 .specialRequests(r.getSpecialRequests()).notes(r.getNotes())
                 .accompanyingGuests(accompanyingGuestRepository.findByReservation_IdAndIsDeletedFalse(r.getId())
                         .stream().map(this::mapAccompanyingGuestToResponse).collect(Collectors.toList()))
@@ -786,10 +795,17 @@ public class ReservationServiceImpl implements ReservationService {
      */
     private String extractInitials(String firstName, String lastName) {
         StringBuilder sb = new StringBuilder();
-        if (firstName != null && !firstName.isBlank())
-            sb.append(firstName.charAt(0));
-        if (lastName != null && !lastName.isBlank())
-            sb.append(lastName.charAt(0));
+        if (firstName != null && !firstName.isBlank()) {
+            String[] parts = firstName.trim().split("\\s+");
+            sb.append(parts[0].charAt(0));
+            if ((lastName == null || lastName.isBlank()) && parts.length > 1) {
+                sb.append(parts[parts.length - 1].charAt(0));
+            }
+        }
+        if (lastName != null && !lastName.isBlank()) {
+            String[] parts = lastName.trim().split("\\s+");
+            sb.append(parts[parts.length - 1].charAt(0));
+        }
         return sb.toString().toUpperCase();
     }
 
@@ -1685,6 +1701,7 @@ public class ReservationServiceImpl implements ReservationService {
                 .billingMode(reservation != null ? reservation.getBillingMode() : null)
                 .businessSource(reservation != null ? reservation.getBusinessSource() : null)
                 .marketSegment(reservation != null ? reservation.getMarketSegment() : null)
+                .bookingFrom(reservation != null ? reservation.getBookingFrom() : null)
                 .specialRequests(reservation != null ? reservation.getSpecialRequests() : null)
                 .notes(reservation != null ? reservation.getNotes() : null).build();
     }
