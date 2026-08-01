@@ -186,7 +186,12 @@ public class ReservationServiceImpl implements ReservationService {
                     .status(commonMasterRepository.findAll().stream()
                             .filter(cm -> "FOLIO_STATUS".equals(cm.getCategory()) && "OPEN".equals(cm.getCode()))
                             .findFirst().orElse(null))
-                    .totalCharges(grandTotal).totalPayments(BigDecimal.ZERO).balance(BigDecimal.ZERO).isDeleted(false)
+                    .totalCharges(grandTotal)
+                    .taxAmount(req.getGstPercent() != null
+                            ? grandTotal.multiply(BigDecimal.valueOf(req.getGstPercent()))
+                            .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
+                            : BigDecimal.ZERO)
+                    .totalPayments(BigDecimal.ZERO).balance(BigDecimal.ZERO).isDeleted(false)
                     .build();
             folioRepository.save(folio);
 
@@ -199,7 +204,7 @@ public class ReservationServiceImpl implements ReservationService {
             folioPosting.setTaxAmount(
                     req.getGstPercent() != null
                             ? grandTotal.multiply(BigDecimal.valueOf(req.getGstPercent()))
-                                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
+                            .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
                             : BigDecimal.ZERO);
             BigDecimal totalTaxAmount = folioPosting.getTaxAmount() != null ? folioPosting.getTaxAmount()
                     : BigDecimal.ZERO;
@@ -446,7 +451,7 @@ public class ReservationServiceImpl implements ReservationService {
     @Override
     @Transactional(readOnly = true)
     public StandardResponse<?> getAllReservations(String searchText, Long statusId, LocalDate fromDate,
-            LocalDate toDate, int page, int size) {
+                                                  LocalDate toDate, int page, int size) {
         log.info("Fetching all reservations, search={}, statusId={}, from={}, to={}, page={}, size={}", searchText,
                 statusId, fromDate, toDate, page, size);
         try {
@@ -668,8 +673,8 @@ public class ReservationServiceImpl implements ReservationService {
                         .roomTypeName(
                                 b.getRoom().getRoomType() != null
                                         ? b.getRoom()
-                                                .getRoomType()
-                                                .getName()
+                                        .getRoomType()
+                                        .getName()
                                         : null)
                         .ratePlanName(
                                 r.getRatePlan() != null
@@ -684,15 +689,15 @@ public class ReservationServiceImpl implements ReservationService {
                 .guestInitials(
                         g != null
                                 ? extractInitials(
-                                        g.getFirstName(),
-                                        g.getLastName())
+                                g.getFirstName(),
+                                g.getLastName())
                                 : null)
                 .guestFullName(
                         g != null
                                 ? (g.getFirstName()
-                                        + (g.getLastName() != null && !g.getLastName().isBlank() ? " " + g.getLastName()
-                                                : ""))
-                                        .trim()
+                                + (g.getLastName() != null && !g.getLastName().isBlank() ? " " + g.getLastName()
+                                : ""))
+                                .trim()
                                 : "Unknown")
                 .guestPhone(g != null ? g.getPhone() : null)
                 .guestBadge(g != null ? resolveGuestBadge(g) : null)
@@ -1221,7 +1226,7 @@ public class ReservationServiceImpl implements ReservationService {
                                     .description(p.getDescription())
                                     .charges(p.getChargeAmount().compareTo(BigDecimal.ZERO) > 0
                                             ? p.getChargeAmount()
-                                                    .add(p.getTaxAmount() != null ? p.getTaxAmount() : BigDecimal.ZERO)
+                                            .add(p.getTaxAmount() != null ? p.getTaxAmount() : BigDecimal.ZERO)
                                             : null)
                                     .build());
                 }
@@ -1524,7 +1529,7 @@ public class ReservationServiceImpl implements ReservationService {
             List<Reservation> reservations = reservationRepository.findReservationsInRange(startDate, endDate);
 
             List<GanttBookingResponse> response = reservations.stream().flatMap(res -> bookingRepository
-                    .findByReservation_IdAndIsDeletedFalse(res.getId()).stream().map(b -> mapToGanttResponse(res, b)))
+                            .findByReservation_IdAndIsDeletedFalse(res.getId()).stream().map(b -> mapToGanttResponse(res, b)))
                     .collect(Collectors.toList());
 
             return StandardResponse.success(response, "Gantt chart data fetched successfully");
