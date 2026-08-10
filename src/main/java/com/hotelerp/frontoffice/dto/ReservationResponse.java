@@ -21,6 +21,9 @@ public class ReservationResponse {
 
     private Long id;
 
+    /** System-generated booking confirmation number, shared across all rooms under this reservation */
+    private String confirmationNumber;
+
     // ── GUEST DETAILS column ───────────────────────────────────────────────
     private Long   guestId;
     private String guestInitials;   // e.g. "JD"

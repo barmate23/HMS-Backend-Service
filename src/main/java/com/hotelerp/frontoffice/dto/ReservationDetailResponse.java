@@ -21,6 +21,9 @@ public class ReservationDetailResponse {
 
     private Long id;
 
+    /** System-generated booking confirmation number (e.g. BK-2026-1108-0042), shared across all rooms */
+    private String confirmationNumber;
+
     // ── Guest ──────────────────────────────────────────────────────────────
     private Long guestId;
     private String guestInitials;

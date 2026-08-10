@@ -17,6 +17,7 @@ import java.util.List;
 public class CheckInPopupResponse {
     private Long bookingId;
     private String bookingRef;
+    private String confirmationNumber;
     private String guestName;
     private String guestPhone;
     private Boolean guestIsVip;

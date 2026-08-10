@@ -21,6 +21,8 @@ import java.util.List;
 public class ReservationArrivalResponse {
     private Long reservationId;
     private String reservationRef;
+    /** System-generated booking confirmation number e.g. BK-2026-1108-0042 */
+    private String confirmationNumber;
 
     // Guest info
     private String guestName;

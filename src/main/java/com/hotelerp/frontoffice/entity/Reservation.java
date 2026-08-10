@@ -104,6 +104,14 @@ public class Reservation {
     @Column(name = "bookingFrom", length = 100)
     private String bookingFrom;
 
+    /**
+     * System-generated unique confirmation/booking number for this reservation.
+     * Same number is shared by all bookings (rooms) under this reservation.
+     * Format: HMS-YYYYMMDD-{reservationId}
+     */
+    @Column(name = "confirmationNumber", length = 50, unique = true)
+    private String confirmationNumber;
+
     // ── Address ────────────────────────────────────────────────────────────
 
     @Column(name = "addressLine1", length = 255)

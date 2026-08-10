@@ -150,6 +150,17 @@ public class ReservationServiceImpl implements ReservationService {
 
             Reservation savedReservation = reservationRepository.save(reservation);
 
+            // Generate unique booking confirmation number: BK-YEAR-DDMM-SEQUENCE
+            // SEQUENCE = reservationId zero-padded to 4 digits (unique and
+            // auto-incrementing)
+            String confirmationNumber = String.format("BK-%d-%02d%02d-%04d",
+                    req.getCheckInDate().getYear(),
+                    req.getCheckInDate().getDayOfMonth(),
+                    req.getCheckInDate().getMonthValue(),
+                    savedReservation.getId());
+            savedReservation.setConfirmationNumber(confirmationNumber);
+            savedReservation = reservationRepository.save(savedReservation);
+
             // 6. Build one Booking per room
             BigDecimal grandTotal = BigDecimal.ZERO;
             BigDecimal ratePlanCharge = ratePlan.getPriceAdjustment() != null ? ratePlan.getPriceAdjustment()
@@ -215,8 +226,9 @@ public class ReservationServiceImpl implements ReservationService {
 
             // 8. Save Accompanying Guests (if any)
             if (req.getAccompanyingGuests() != null && !req.getAccompanyingGuests().isEmpty()) {
+                Reservation finalSavedReservation = savedReservation;
                 List<AccompanyingGuest> accompanyingGuests = req.getAccompanyingGuests().stream()
-                        .map(ag -> AccompanyingGuest.builder().reservation(savedReservation).title(ag.getTitle())
+                        .map(ag -> AccompanyingGuest.builder().reservation(finalSavedReservation).title(ag.getTitle())
                                 .fullName(ag.getFullName()).gender(ag.getGender()).dateOfBirth(ag.getDateOfBirth())
                                 .relationship(ag.getRelationship()).idProofType(ag.getIdProofType())
                                 .idNumber(ag.getIdNumber()).isDeleted(false).build())
@@ -690,6 +702,7 @@ public class ReservationServiceImpl implements ReservationService {
 
         return ReservationResponse.builder()
                 .id(r.getId())
+                .confirmationNumber(r.getConfirmationNumber())
                 .guestId(g != null ? g.getId() : null)
                 .guestInitials(
                         g != null
@@ -764,7 +777,9 @@ public class ReservationServiceImpl implements ReservationService {
         Integer gstPercent = bookings.stream().filter(Objects::nonNull).map(Booking::getGsrPercent)
                 .filter(Objects::nonNull).findFirst().orElse(0);
 
-        return ReservationDetailResponse.builder().id(r.getId()).guestId(g != null ? g.getId() : null)
+        return ReservationDetailResponse.builder().id(r.getId())
+                .confirmationNumber(r.getConfirmationNumber())
+                .guestId(g != null ? g.getId() : null)
                 .guestInitials(g != null ? extractInitials(g.getFirstName(), g.getLastName()) : null)
                 .guestFullName(g != null ? g.getFirstName() + " " + g.getLastName() : "Unknown")
                 .guestEmail(g != null ? g.getEmail() : null).guestPhone(g != null ? g.getPhone() : null)
@@ -902,8 +917,7 @@ public class ReservationServiceImpl implements ReservationService {
                     predicates.add(cb.greaterThanOrEqualTo(root.get("checkOutDate"), targetDate));
                     predicates.add(cb.or(
                             cb.equal(root.get("bookingStatus").get("code"), "CHECKED_IN"),
-                            cb.equal(root.get("bookingStatus").get("code"), "CHECKED_OUT")
-                    ));
+                            cb.equal(root.get("bookingStatus").get("code"), "CHECKED_OUT")));
                 } else {
                     predicates.add(cb.equal(root.get("checkInDate"), targetDate));
                 }
@@ -992,7 +1006,8 @@ public class ReservationServiceImpl implements ReservationService {
                     } else {
                         BigDecimal roomCharges = b.getFinalPrice() != null ? b.getFinalPrice() : BigDecimal.ZERO;
                         int gstPct = b.getGsrPercent() != null ? b.getGsrPercent() : 0;
-                        BigDecimal taxAmount = roomCharges.multiply(new BigDecimal(gstPct)).divide(new BigDecimal(100), 2, RoundingMode.HALF_UP);
+                        BigDecimal taxAmount = roomCharges.multiply(new BigDecimal(gstPct)).divide(new BigDecimal(100),
+                                2, RoundingMode.HALF_UP);
                         totalCharges = roomCharges.add(taxAmount);
                     }
                     BigDecimal balance = totalCharges.subtract(paidAmount);
@@ -1001,21 +1016,33 @@ public class ReservationServiceImpl implements ReservationService {
                     String code = b.getBookingStatus() != null ? b.getBookingStatus().getCode() : "";
                     String statusStr;
                     if (checkout) {
-                        if ("CHECKED_IN".equals(code)) statusStr = "Pending";
-                        else if ("CHECKED_OUT".equals(code)) statusStr = "Checked Out";
-                        else statusStr = b.getBookingStatus() != null ? b.getBookingStatus().getValue() : "Unknown";
+                        if ("CHECKED_IN".equals(code))
+                            statusStr = "Pending";
+                        else if ("CHECKED_OUT".equals(code))
+                            statusStr = "Checked Out";
+                        else
+                            statusStr = b.getBookingStatus() != null ? b.getBookingStatus().getValue() : "Unknown";
                     } else {
-                        if ("PENDING".equals(code) || "CONFIRMED".equals(code)) statusStr = "Pending";
-                        else if ("CHECKED_IN".equals(code)) statusStr = "Checked In";
-                        else statusStr = b.getBookingStatus() != null ? b.getBookingStatus().getValue() : "Unknown";
+                        if ("PENDING".equals(code) || "CONFIRMED".equals(code))
+                            statusStr = "Pending";
+                        else if ("CHECKED_IN".equals(code))
+                            statusStr = "Checked In";
+                        else
+                            statusStr = b.getBookingStatus() != null ? b.getBookingStatus().getValue() : "Unknown";
                     }
 
+                    String confNum = res.getConfirmationNumber() != null ? res.getConfirmationNumber()
+                            : ("BK-" + b.getId());
+
                     bkgResponses.add(ArrivalBookingResponse.builder()
-                            .bookingId(b.getId()).bookingRef("BK-" + b.getId())
+                            .bookingId(b.getId())
+                            .bookingRef(confNum)
                             .guestName(g != null ? g.getFirstName() + " " + g.getLastName() : "Unknown")
                             .guestIsVip(g != null ? g.getIsVip() : false)
                             .numberOfNights(b.getNumberOfNights())
-                            .roomTypeName(b.getRoom() != null && b.getRoom().getRoomType() != null ? b.getRoom().getRoomType().getName() : "")
+                            .roomTypeName(b.getRoom() != null && b.getRoom().getRoomType() != null
+                                    ? b.getRoom().getRoomType().getName()
+                                    : "")
                             .roomNumber(b.getRoom() != null ? b.getRoom().getRoomNumber() : null)
                             .eta(checkout ? res.getCheckOutTime() : res.getCheckInTime())
                             .balance(balance)
@@ -1044,11 +1071,13 @@ public class ReservationServiceImpl implements ReservationService {
                     overallStatus = "Partial";
                 }
 
-                Integer gstPct = resBkgs.stream().map(Booking::getGsrPercent).filter(Objects::nonNull).findFirst().orElse(0);
+                Integer gstPct = resBkgs.stream().map(Booking::getGsrPercent).filter(Objects::nonNull).findFirst()
+                        .orElse(0);
 
                 return ReservationArrivalResponse.builder()
                         .reservationId(res.getId())
                         .reservationRef("RES-" + res.getId())
+                        .confirmationNumber(res.getConfirmationNumber())
                         .guestName(g != null ? g.getFirstName() + " " + g.getLastName() : "Unknown")
                         .guestIsVip(g != null ? g.getIsVip() : false)
                         .numberOfNights(res.getNumberOfNights())
@@ -1127,8 +1156,10 @@ public class ReservationServiceImpl implements ReservationService {
                 }
             }
 
+            String confNum = res.getConfirmationNumber() != null ? res.getConfirmationNumber() : ("BK-" + b.getId());
+
             CheckInPopupResponse response = CheckInPopupResponse.builder().bookingId(b.getId())
-                    .bookingRef("BK-" + b.getId()).guestName(g.getFirstName() + " " + g.getLastName())
+                    .bookingRef(confNum).confirmationNumber(confNum).guestName(g.getFirstName() + " " + g.getLastName())
                     .guestPhone(g.getPhone()).guestIsVip(g.getIsVip()).checkInDate(b.getCheckInDate())
                     .expectedArrival(res.getCheckInTime()).numberOfNights(b.getNumberOfNights())
                     .roomTypeName(b.getRoom().getRoomType() != null ? b.getRoom().getRoomType().getName() : "")
@@ -1152,14 +1183,17 @@ public class ReservationServiceImpl implements ReservationService {
                 request.getBookings() != null ? request.getBookings().size() : 0);
         try {
             if (request.getReservationId() == null) {
-                return StandardResponse.error("Reservation ID is required", "RESERVATION_ID_REQUIRED", "reservationId", null);
+                return StandardResponse.error("Reservation ID is required", "RESERVATION_ID_REQUIRED", "reservationId",
+                        null);
             }
             if (request.getBookings() == null || request.getBookings().isEmpty()) {
-                return StandardResponse.error("At least one booking is required", "BOOKINGS_REQUIRED", "bookings", null);
+                return StandardResponse.error("At least one booking is required", "BOOKINGS_REQUIRED", "bookings",
+                        null);
             }
 
             Reservation res = reservationRepository.findById(request.getReservationId())
-                    .orElseThrow(() -> new IllegalArgumentException("Reservation not found: " + request.getReservationId()));
+                    .orElseThrow(
+                            () -> new IllegalArgumentException("Reservation not found: " + request.getReservationId()));
 
             // --- Get/create reservation-level Folio once ---
             Folio folio = folioRepository.findByReservation_IdAndIsDeletedFalse(res.getId()).orElseGet(() -> {
@@ -1178,17 +1212,20 @@ public class ReservationServiceImpl implements ReservationService {
             // --- Process each booking item in the list ---
             for (BookingCheckInItem item : request.getBookings()) {
                 if (item.getBookingId() == null) {
-                    return StandardResponse.error("bookingId is required in each booking item", "BOOKING_ID_REQUIRED", "bookings.bookingId", null);
+                    return StandardResponse.error("bookingId is required in each booking item", "BOOKING_ID_REQUIRED",
+                            "bookings.bookingId", null);
                 }
                 if (item.getRoomId() == null) {
-                    return StandardResponse.error("roomId is required in each booking item", "ROOM_ID_REQUIRED", "bookings.roomId", null);
+                    return StandardResponse.error("roomId is required in each booking item", "ROOM_ID_REQUIRED",
+                            "bookings.roomId", null);
                 }
 
                 Booking b = bookingRepository.findById(item.getBookingId())
                         .orElseThrow(() -> new IllegalArgumentException("Booking not found: " + item.getBookingId()));
 
                 if (!b.getReservation().getId().equals(res.getId())) {
-                    return StandardResponse.error("Booking " + item.getBookingId() + " does not belong to reservation " + res.getId(),
+                    return StandardResponse.error(
+                            "Booking " + item.getBookingId() + " does not belong to reservation " + res.getId(),
                             "BOOKING_RESERVATION_MISMATCH", "bookings.bookingId", null);
                 }
 
@@ -1221,14 +1258,17 @@ public class ReservationServiceImpl implements ReservationService {
                 }
 
                 // Room audit log per booking
-                BigDecimal amtPaid = request.getAmountToSettle() != null ? request.getAmountToSettle() : BigDecimal.ZERO;
+                BigDecimal amtPaid = request.getAmountToSettle() != null ? request.getAmountToSettle()
+                        : BigDecimal.ZERO;
                 roomAuditRepository.save(RoomAudit.builder().room(room).booking(b).operationType("CHECK_IN")
                         .amountPaid(amtPaid)
-                        .notes("Guest checked in to Room " + room.getRoomNumber() + ". Payment Mode: " + request.getPaymentMethod())
+                        .notes("Guest checked in to Room " + room.getRoomNumber() + ". Payment Mode: "
+                                + request.getPaymentMethod())
                         .createdAt(LocalDateTime.now()).build());
             }
 
-            // --- Update reservation status to CHECKED_IN if all bookings are now checked in ---
+            // --- Update reservation status to CHECKED_IN if all bookings are now checked
+            // in ---
             List<Booking> allBookings = bookingRepository.findByReservation_IdAndIsDeletedFalse(res.getId());
             boolean allCheckedIn = allBookings.stream().allMatch(bk -> {
                 String code = bk.getBookingStatus() != null ? bk.getBookingStatus().getCode() : "";
@@ -1240,7 +1280,8 @@ public class ReservationServiceImpl implements ReservationService {
                 reservationRepository.save(res);
             }
 
-            // --- Process advance payment at folio level (once for the whole reservation) ---
+            // --- Process advance payment at folio level (once for the whole reservation)
+            // ---
             if (request.getAmountToSettle() != null && request.getAmountToSettle().compareTo(BigDecimal.ZERO) > 0) {
                 // Link payment to the first booking's bill for traceability
                 Bill primaryBill = allBookings.stream()
@@ -1272,7 +1313,8 @@ public class ReservationServiceImpl implements ReservationService {
                 }
             }
 
-            return StandardResponse.success(null, "Checked in successfully for " + request.getBookings().size() + " booking(s)");
+            return StandardResponse.success(null,
+                    "Checked in successfully for " + request.getBookings().size() + " booking(s)");
         } catch (Exception e) {
             log.error("Error completing check-in: ", e);
             return StandardResponse.error("Failed to complete check-in", "CHECKIN_ERROR", null, e.getMessage());
@@ -1389,28 +1431,35 @@ public class ReservationServiceImpl implements ReservationService {
     @Override
     @Transactional
     public StandardResponse<?> completeCheckOut(CheckOutRequest request) {
-        log.info("Completing batch check-out for reservationId={}, bookingIds={}", request.getReservationId(), request.getBookingIds());
+        log.info("Completing batch check-out for reservationId={}, bookingIds={}", request.getReservationId(),
+                request.getBookingIds());
         try {
             if (request.getReservationId() == null) {
-                return StandardResponse.error("Reservation ID is required", "RESERVATION_ID_REQUIRED", "reservationId", null);
+                return StandardResponse.error("Reservation ID is required", "RESERVATION_ID_REQUIRED", "reservationId",
+                        null);
             }
             if (request.getBookingIds() == null || request.getBookingIds().isEmpty()) {
-                return StandardResponse.error("At least one bookingId is required", "BOOKING_IDS_REQUIRED", "bookingIds", null);
+                return StandardResponse.error("At least one bookingId is required", "BOOKING_IDS_REQUIRED",
+                        "bookingIds", null);
             }
 
             Reservation res = reservationRepository.findById(request.getReservationId())
-                    .orElseThrow(() -> new IllegalArgumentException("Reservation not found: " + request.getReservationId()));
+                    .orElseThrow(
+                            () -> new IllegalArgumentException("Reservation not found: " + request.getReservationId()));
 
             // Additional charges split across bookings (apply equally, or add to folio)
             BigDecimal lateFee = request.getLateCheckOutFee() != null ? request.getLateCheckOutFee() : BigDecimal.ZERO;
             BigDecimal minibar = request.getMinibarCharges() != null ? request.getMinibarCharges() : BigDecimal.ZERO;
-            BigDecimal damage = request.getDamagePenaltyCharge() != null ? request.getDamagePenaltyCharge() : BigDecimal.ZERO;
+            BigDecimal damage = request.getDamagePenaltyCharge() != null ? request.getDamagePenaltyCharge()
+                    : BigDecimal.ZERO;
             BigDecimal newAdditional = lateFee.add(minibar).add(damage);
-            BigDecimal amountToCollect = request.getAmountToCollect() != null ? request.getAmountToCollect() : BigDecimal.ZERO;
+            BigDecimal amountToCollect = request.getAmountToCollect() != null ? request.getAmountToCollect()
+                    : BigDecimal.ZERO;
 
             Folio folio = folioRepository.findByReservation_IdAndIsDeletedFalse(res.getId()).orElse(null);
 
-            // --- Pre-validate: all requested bookings must be CHECKED_IN and calculate total balance ---
+            // --- Pre-validate: all requested bookings must be CHECKED_IN and calculate
+            // total balance ---
             BigDecimal totalExpectedCharges = BigDecimal.ZERO;
             BigDecimal totalCurrentPaid = BigDecimal.ZERO;
 
@@ -1419,7 +1468,8 @@ public class ReservationServiceImpl implements ReservationService {
                 Booking b = bookingRepository.findById(bookingId)
                         .orElseThrow(() -> new IllegalArgumentException("Booking not found: " + bookingId));
                 if (!b.getReservation().getId().equals(res.getId())) {
-                    return StandardResponse.error("Booking " + bookingId + " does not belong to reservation " + res.getId(),
+                    return StandardResponse.error(
+                            "Booking " + bookingId + " does not belong to reservation " + res.getId(),
                             "BOOKING_RESERVATION_MISMATCH", "bookingIds", null);
                 }
                 String code = b.getBookingStatus() != null ? b.getBookingStatus().getCode() : "";
@@ -1436,13 +1486,16 @@ public class ReservationServiceImpl implements ReservationService {
                     BigDecimal total = roomCharges.add(taxAmount);
                     bill = Bill.builder().booking(b).guest(res.getGuest()).roomCharges(roomCharges).taxAmount(taxAmount)
                             .totalAmount(total).additionalCharges(BigDecimal.ZERO).billStatus(Bill.BillStatus.ISSUED)
-                            .billDate(LocalDate.now()).paymentDueDate(b.getCheckOutDate()).createdAt(LocalDateTime.now())
+                            .billDate(LocalDate.now()).paymentDueDate(b.getCheckOutDate())
+                            .createdAt(LocalDateTime.now())
                             .updatedAt(LocalDateTime.now()).build();
                     bill = billRepository.save(bill);
                 }
 
-                BigDecimal currentAdditional = bill.getAdditionalCharges() != null ? bill.getAdditionalCharges() : BigDecimal.ZERO;
-                totalExpectedCharges = totalExpectedCharges.add(bill.getRoomCharges().add(bill.getTaxAmount()).add(currentAdditional));
+                BigDecimal currentAdditional = bill.getAdditionalCharges() != null ? bill.getAdditionalCharges()
+                        : BigDecimal.ZERO;
+                totalExpectedCharges = totalExpectedCharges
+                        .add(bill.getRoomCharges().add(bill.getTaxAmount()).add(currentAdditional));
                 totalCurrentPaid = totalCurrentPaid.add(
                         paymentRepository.findByBill_Id(bill.getId()).stream()
                                 .filter(p -> p.getPaymentStatus() == Payment.PaymentStatus.SUCCESS)
@@ -1470,15 +1523,18 @@ public class ReservationServiceImpl implements ReservationService {
             }
 
             // --- Process each booking: add charges, update status, mark room vacant ---
-            // Apply additional charges proportionally to first booking's bill for simplicity
+            // Apply additional charges proportionally to first booking's bill for
+            // simplicity
             boolean additionalApplied = false;
             for (Booking b : checkoutBookings) {
                 Bill bill = billRepository.findByBooking_Id(b.getId()).orElseThrow();
-                BigDecimal currentAdditional = bill.getAdditionalCharges() != null ? bill.getAdditionalCharges() : BigDecimal.ZERO;
+                BigDecimal currentAdditional = bill.getAdditionalCharges() != null ? bill.getAdditionalCharges()
+                        : BigDecimal.ZERO;
 
                 if (!additionalApplied && newAdditional.compareTo(BigDecimal.ZERO) > 0) {
                     bill.setAdditionalCharges(currentAdditional.add(newAdditional));
-                    bill.setTotalAmount(bill.getRoomCharges().add(bill.getTaxAmount()).add(bill.getAdditionalCharges()));
+                    bill.setTotalAmount(
+                            bill.getRoomCharges().add(bill.getTaxAmount()).add(bill.getAdditionalCharges()));
                     billRepository.save(bill);
 
                     if (folio != null) {
@@ -1508,7 +1564,8 @@ public class ReservationServiceImpl implements ReservationService {
 
                     roomAuditRepository.save(RoomAudit.builder().room(room).booking(b).operationType("CHECK_OUT")
                             .amountPaid(amountToCollect)
-                            .notes("Guest checked out from Room " + room.getRoomNumber() + ". Keys Returned: " + request.getKeysReturned())
+                            .notes("Guest checked out from Room " + room.getRoomNumber() + ". Keys Returned: "
+                                    + request.getKeysReturned())
                             .createdAt(LocalDateTime.now()).build());
                 }
 
@@ -1516,9 +1573,12 @@ public class ReservationServiceImpl implements ReservationService {
                 BigDecimal totalPaid = paymentRepository.findByBill_Id(bill.getId()).stream()
                         .filter(p -> p.getPaymentStatus() == Payment.PaymentStatus.SUCCESS).map(Payment::getAmount)
                         .reduce(BigDecimal.ZERO, BigDecimal::add);
-                if (totalPaid.compareTo(bill.getTotalAmount()) >= 0) bill.setBillStatus(Bill.BillStatus.PAID);
-                else if (totalPaid.compareTo(BigDecimal.ZERO) > 0) bill.setBillStatus(Bill.BillStatus.PARTIALLY_PAID);
-                else bill.setBillStatus(Bill.BillStatus.ISSUED);
+                if (totalPaid.compareTo(bill.getTotalAmount()) >= 0)
+                    bill.setBillStatus(Bill.BillStatus.PAID);
+                else if (totalPaid.compareTo(BigDecimal.ZERO) > 0)
+                    bill.setBillStatus(Bill.BillStatus.PARTIALLY_PAID);
+                else
+                    bill.setBillStatus(Bill.BillStatus.ISSUED);
                 bill.setUpdatedAt(LocalDateTime.now());
                 billRepository.save(bill);
             }
@@ -1544,13 +1604,18 @@ public class ReservationServiceImpl implements ReservationService {
                 CommonMaster closedStatus = commonMasterRepository.findAll().stream()
                         .filter(cm -> "FOLIO_STATUS".equals(cm.getCategory()) && "CLOSED".equals(cm.getCode()))
                         .findFirst().orElse(null);
-                if (closedStatus != null) { folio.setStatus(closedStatus); folioRepository.save(folio); }
+                if (closedStatus != null) {
+                    folio.setStatus(closedStatus);
+                    folioRepository.save(folio);
+                }
             }
 
             // --- Append checkout notes to reservation ---
             StringBuilder notesBuilder = new StringBuilder();
-            if (res.getNotes() != null) notesBuilder.append(res.getNotes()).append("\n");
-            notesBuilder.append("[Checkout Audit] Keys Returned: ").append(request.getKeysReturned() != null ? request.getKeysReturned() : "N/A");
+            if (res.getNotes() != null)
+                notesBuilder.append(res.getNotes()).append("\n");
+            notesBuilder.append("[Checkout Audit] Keys Returned: ")
+                    .append(request.getKeysReturned() != null ? request.getKeysReturned() : "N/A");
             if (request.getTransportationRequested() != null && !request.getTransportationRequested().isEmpty())
                 notesBuilder.append(", Transportation: ").append(request.getTransportationRequested());
             if (request.getGuestFeedback() != null && !request.getGuestFeedback().isEmpty())
@@ -1571,7 +1636,8 @@ public class ReservationServiceImpl implements ReservationService {
             }
             reservationRepository.save(res);
 
-            return StandardResponse.success(null, "Checked out successfully for " + request.getBookingIds().size() + " booking(s)");
+            return StandardResponse.success(null,
+                    "Checked out successfully for " + request.getBookingIds().size() + " booking(s)");
         } catch (Exception e) {
             log.error("Error completing check-out: ", e);
             return StandardResponse.error("Failed to complete check-out", "CHECKOUT_ERROR", null, e.getMessage());
