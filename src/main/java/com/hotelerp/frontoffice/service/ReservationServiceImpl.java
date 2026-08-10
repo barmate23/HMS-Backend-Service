@@ -180,6 +180,12 @@ public class ReservationServiceImpl implements ReservationService {
                 roomAuditRepository.save(audit);
             }
 
+            BigDecimal totalTaxAmount = req.getGstPercent() != null
+                    ? grandTotal.multiply(BigDecimal.valueOf(req.getGstPercent()))
+                            .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO;
+            BigDecimal totalAmount = grandTotal.add(totalTaxAmount);
+
             // 7. Create Folio for the reservation
             Folio folio = Folio.builder().reservation(savedReservation)
                     .folioNumber("FOL-" + savedReservation.getId() + "-" + (System.currentTimeMillis() % 10000))
@@ -187,11 +193,8 @@ public class ReservationServiceImpl implements ReservationService {
                             .filter(cm -> "FOLIO_STATUS".equals(cm.getCategory()) && "OPEN".equals(cm.getCode()))
                             .findFirst().orElse(null))
                     .totalCharges(grandTotal)
-                    .taxAmount(req.getGstPercent() != null
-                            ? grandTotal.multiply(BigDecimal.valueOf(req.getGstPercent()))
-                            .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
-                            : BigDecimal.ZERO)
-                    .totalPayments(BigDecimal.ZERO).balance(BigDecimal.ZERO).isDeleted(false)
+                    .taxAmount(totalTaxAmount)
+                    .totalPayments(BigDecimal.ZERO).balance(totalAmount).isDeleted(false)
                     .build();
             folioRepository.save(folio);
 
@@ -201,14 +204,7 @@ public class ReservationServiceImpl implements ReservationService {
             folioPosting.setPostingDate(LocalDateTime.now());
             folioPosting.setSource("Reservation");
             folioPosting.setChargeAmount(grandTotal);
-            folioPosting.setTaxAmount(
-                    req.getGstPercent() != null
-                            ? grandTotal.multiply(BigDecimal.valueOf(req.getGstPercent()))
-                            .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
-                            : BigDecimal.ZERO);
-            BigDecimal totalTaxAmount = folioPosting.getTaxAmount() != null ? folioPosting.getTaxAmount()
-                    : BigDecimal.ZERO;
-            BigDecimal totalAmount = grandTotal.add(totalTaxAmount);
+            folioPosting.setTaxAmount(totalTaxAmount);
             folioPosting.setTotalAmount(totalAmount);
             folioPosting.setIsDeleted(false);
             folioPosting.setCreatedAt(LocalDateTime.now());
@@ -451,7 +447,7 @@ public class ReservationServiceImpl implements ReservationService {
     @Override
     @Transactional(readOnly = true)
     public StandardResponse<?> getAllReservations(String searchText, Long statusId, LocalDate fromDate,
-                                                  LocalDate toDate, int page, int size) {
+            LocalDate toDate, int page, int size) {
         log.info("Fetching all reservations, search={}, statusId={}, from={}, to={}, page={}, size={}", searchText,
                 statusId, fromDate, toDate, page, size);
         try {
@@ -673,8 +669,8 @@ public class ReservationServiceImpl implements ReservationService {
                         .roomTypeName(
                                 b.getRoom().getRoomType() != null
                                         ? b.getRoom()
-                                        .getRoomType()
-                                        .getName()
+                                                .getRoomType()
+                                                .getName()
                                         : null)
                         .ratePlanName(
                                 r.getRatePlan() != null
@@ -689,15 +685,15 @@ public class ReservationServiceImpl implements ReservationService {
                 .guestInitials(
                         g != null
                                 ? extractInitials(
-                                g.getFirstName(),
-                                g.getLastName())
+                                        g.getFirstName(),
+                                        g.getLastName())
                                 : null)
                 .guestFullName(
                         g != null
                                 ? (g.getFirstName()
-                                + (g.getLastName() != null && !g.getLastName().isBlank() ? " " + g.getLastName()
-                                : ""))
-                                .trim()
+                                        + (g.getLastName() != null && !g.getLastName().isBlank() ? " " + g.getLastName()
+                                                : ""))
+                                        .trim()
                                 : "Unknown")
                 .guestPhone(g != null ? g.getPhone() : null)
                 .guestBadge(g != null ? resolveGuestBadge(g) : null)
@@ -1226,7 +1222,7 @@ public class ReservationServiceImpl implements ReservationService {
                                     .description(p.getDescription())
                                     .charges(p.getChargeAmount().compareTo(BigDecimal.ZERO) > 0
                                             ? p.getChargeAmount()
-                                            .add(p.getTaxAmount() != null ? p.getTaxAmount() : BigDecimal.ZERO)
+                                                    .add(p.getTaxAmount() != null ? p.getTaxAmount() : BigDecimal.ZERO)
                                             : null)
                                     .build());
                 }
@@ -1314,9 +1310,129 @@ public class ReservationServiceImpl implements ReservationService {
                         null);
             }
 
+            Reservation res = b.getReservation();
+
+            // Retrieve or create Bill
+            Bill bill = billRepository.findByBooking_Id(b.getId()).orElse(null);
+            if (bill == null) {
+                BigDecimal roomCharges = b.getFinalPrice();
+                BigDecimal taxAmount = roomCharges.multiply(new BigDecimal("0.18"));
+                BigDecimal totalAmount = roomCharges.add(taxAmount);
+
+                bill = Bill.builder().booking(b).guest(res.getGuest()).roomCharges(roomCharges).taxAmount(taxAmount)
+                        .totalAmount(totalAmount).additionalCharges(BigDecimal.ZERO).billStatus(Bill.BillStatus.ISSUED)
+                        .billDate(LocalDate.now()).paymentDueDate(b.getCheckOutDate()).createdAt(LocalDateTime.now())
+                        .updatedAt(LocalDateTime.now()).build();
+                bill = billRepository.save(bill);
+            }
+
+            // Calculate additional charges to be added
+            BigDecimal lateFee = request.getLateCheckOutFee() != null ? request.getLateCheckOutFee() : BigDecimal.ZERO;
+            BigDecimal minibar = request.getMinibarCharges() != null ? request.getMinibarCharges() : BigDecimal.ZERO;
+            BigDecimal damage = request.getDamagePenaltyCharge() != null ? request.getDamagePenaltyCharge()
+                    : BigDecimal.ZERO;
+            BigDecimal newAdditional = lateFee.add(minibar).add(damage);
+
+            // Amount to collect at checkout
+            BigDecimal amountToCollect = request.getAmountToCollect() != null ? request.getAmountToCollect()
+                    : BigDecimal.ZERO;
+
+            // Calculate current total paid for this bill
+            BigDecimal currentTotalPaid = paymentRepository.findByBill_Id(bill.getId()).stream()
+                    .filter(p -> p.getPaymentStatus() == Payment.PaymentStatus.SUCCESS).map(Payment::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            // Total bill charges after adding new additional charges
+            BigDecimal currentAdditional = bill.getAdditionalCharges() != null ? bill.getAdditionalCharges()
+                    : BigDecimal.ZERO;
+            BigDecimal expectedTotalCharges = bill.getRoomCharges().add(bill.getTaxAmount())
+                    .add(currentAdditional).add(newAdditional);
+
+            // Total payments after applying amountToCollect
+            BigDecimal expectedTotalPaid = currentTotalPaid.add(amountToCollect);
+
+            // Remaining balance to pay
+            BigDecimal billRemaining = expectedTotalCharges.subtract(expectedTotalPaid);
+            BigDecimal remainingBalance = billRemaining;
+
+            Folio folio = folioRepository.findByReservation_IdAndIsDeletedFalse(res.getId()).orElse(null);
+            if (folio != null && folio.getBalance() != null) {
+                BigDecimal folioRemaining = folio.getBalance().add(newAdditional).subtract(amountToCollect);
+                if (folioRemaining.compareTo(remainingBalance) > 0) {
+                    remainingBalance = folioRemaining;
+                }
+            }
+
+            // Validation: if any amount remains to pay, return error before modifying room/booking status
+            if (remainingBalance.compareTo(BigDecimal.ZERO) > 0) {
+                return StandardResponse.error("Clear the payment amount before processing for checkout",
+                        "UNPAID_FOLIO_BALANCE", "balance",
+                        "Remaining amount to pay against guest folio is: " + remainingBalance);
+            }
+
+            // Update additional charges in the bill and folio
+            if (newAdditional.compareTo(BigDecimal.ZERO) > 0) {
+                bill.setAdditionalCharges(currentAdditional.add(newAdditional));
+                bill.setTotalAmount(expectedTotalCharges);
+
+                // Folio Posting for Additional Charges
+                if (folio != null) {
+                    FolioPosting additionalPosting = FolioPosting.builder().folio(folio)
+                            .postingDate(LocalDateTime.now()).source("Other")
+                            .description("Additional Charges (Late Fee/Minibar/Damage)").taxAmount(BigDecimal.ZERO)
+                            .totalAmount(newAdditional).isDeleted(false).build();
+                    folioPostingRepository.save(additionalPosting);
+
+                    folio.setTotalCharges(folio.getTotalCharges().add(newAdditional));
+                    folio.setBalance(folio.getBalance().add(newAdditional));
+                    folioRepository.save(folio);
+                }
+            }
+
+            // Process settlement payment if amountToCollect > 0
+            if (amountToCollect.compareTo(BigDecimal.ZERO) > 0) {
+                Payment payment = Payment.builder().bill(bill).amount(amountToCollect)
+                        .paymentMode(mapPaymentMode(request.getPaymentMethod())).paymentDate(LocalDate.now())
+                        .transactionId("TXN-" + System.currentTimeMillis() + "-" + (int) (Math.random() * 1000))
+                        .paymentStatus(Payment.PaymentStatus.SUCCESS).createdAt(LocalDateTime.now()).build();
+                paymentRepository.save(payment);
+
+                if (folio != null) {
+                    folio.setTotalPayments(folio.getTotalPayments().add(amountToCollect));
+                    folio.setBalance(folio.getBalance().subtract(amountToCollect));
+                    folioRepository.save(folio);
+                }
+            }
+
+            // Recalculate bill status based on all payments
+            BigDecimal totalPaid = paymentRepository.findByBill_Id(bill.getId()).stream()
+                    .filter(p -> p.getPaymentStatus() == Payment.PaymentStatus.SUCCESS).map(Payment::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            if (totalPaid.compareTo(bill.getTotalAmount()) >= 0) {
+                bill.setBillStatus(Bill.BillStatus.PAID);
+            } else if (totalPaid.compareTo(BigDecimal.ZERO) > 0) {
+                bill.setBillStatus(Bill.BillStatus.PARTIALLY_PAID);
+            } else {
+                bill.setBillStatus(Bill.BillStatus.ISSUED);
+            }
+            bill.setUpdatedAt(LocalDateTime.now());
+            billRepository.save(bill);
+
+            // Update Folio status to CLOSED if balance is settled
+            if (folio != null && folio.getBalance().compareTo(BigDecimal.ZERO) <= 0) {
+                CommonMaster closedStatus = commonMasterRepository.findAll().stream()
+                        .filter(cm -> "FOLIO_STATUS".equals(cm.getCategory()) && "CLOSED".equals(cm.getCode()))
+                        .findFirst().orElse(null);
+                if (closedStatus != null) {
+                    folio.setStatus(closedStatus);
+                    folioRepository.save(folio);
+                }
+            }
+
             Room room = b.getRoom();
 
-            // Update booking status
+            // Update booking status to CHECKED_OUT
             b.setBookingStatus(getStatusByCode("BOOKING_STATUS", "CHECKED_OUT"));
             b.setUpdatedAt(LocalDateTime.now());
 
@@ -1348,124 +1464,10 @@ public class ReservationServiceImpl implements ReservationService {
                 roomRepository.save(room);
             }
 
-            // Update reservation status to CHECKED_OUT if all bookings under this
-            // reservation are CHECKED_OUT
-            Reservation res = b.getReservation();
-            List<Booking> bookings = bookingRepository.findByReservation_IdAndIsDeletedFalse(res.getId());
-            boolean allCheckedOut = bookings.stream().allMatch(bk -> {
-                String code = bk.getBookingStatus() != null ? bk.getBookingStatus().getCode() : "";
-                return "CHECKED_OUT".equals(code);
-            });
-            if (allCheckedOut) {
-                res.setReservationStatus(getStatusByCode("BOOKING_STATUS", "CHECKED_OUT"));
-                res.setUpdatedAt(LocalDateTime.now());
-                reservationRepository.save(res);
-            }
-
-            // Retrieve or create Bill
-            Bill bill = billRepository.findByBooking_Id(b.getId()).orElse(null);
-            if (bill == null) {
-                BigDecimal roomCharges = b.getFinalPrice();
-                BigDecimal taxAmount = roomCharges.multiply(new BigDecimal("0.18"));
-                BigDecimal totalAmount = roomCharges.add(taxAmount);
-
-                bill = Bill.builder().booking(b).guest(res.getGuest()).roomCharges(roomCharges).taxAmount(taxAmount)
-                        .totalAmount(totalAmount).additionalCharges(BigDecimal.ZERO).billStatus(Bill.BillStatus.ISSUED)
-                        .billDate(LocalDate.now()).paymentDueDate(b.getCheckOutDate()).createdAt(LocalDateTime.now())
-                        .updatedAt(LocalDateTime.now()).build();
-                bill = billRepository.save(bill);
-            }
-
-            // Update additional charges in the bill (late fee, minibar, damage penalty)
-            BigDecimal lateFee = request.getLateCheckOutFee() != null ? request.getLateCheckOutFee() : BigDecimal.ZERO;
-            BigDecimal minibar = request.getMinibarCharges() != null ? request.getMinibarCharges() : BigDecimal.ZERO;
-            BigDecimal damage = request.getDamagePenaltyCharge() != null ? request.getDamagePenaltyCharge()
-                    : BigDecimal.ZERO;
-            BigDecimal newAdditional = lateFee.add(minibar).add(damage);
-
-            if (newAdditional.compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal currentAdditional = bill.getAdditionalCharges() != null ? bill.getAdditionalCharges()
-                        : BigDecimal.ZERO;
-                bill.setAdditionalCharges(currentAdditional.add(newAdditional));
-                bill.setTotalAmount(bill.getRoomCharges().add(bill.getTaxAmount()).add(bill.getAdditionalCharges()));
-
-                // Folio Posting for Additional Charges
-                Folio folio = folioRepository.findByReservation_IdAndIsDeletedFalse(res.getId()).orElse(null);
-                if (folio != null) {
-                    FolioPosting additionalPosting = FolioPosting.builder().folio(folio)
-                            .postingDate(LocalDateTime.now()).source("Other")
-                            .description("Additional Charges (Late Fee/Minibar/Damage)").taxAmount(BigDecimal.ZERO)
-                            .totalAmount(newAdditional).isDeleted(false).build();
-                    folioPostingRepository.save(additionalPosting);
-
-                    folio.setTotalCharges(folio.getTotalCharges().add(newAdditional));
-                    folio.setBalance(folio.getBalance().add(newAdditional));
-                    folioRepository.save(folio);
-                }
-            }
-
-            // // Save checkout payment if any
-            // if (request.getAmountToCollect() != null &&
-            // request.getAmountToCollect().compareTo(BigDecimal.ZERO) > 0) {
-            // Payment payment = Payment.builder()
-            // .bill(bill)
-            // .amount(request.getAmountToCollect())
-            // .paymentMode(mapPaymentMode(request.getPaymentMethod()))
-            // .paymentDate(LocalDate.now())
-            // .transactionId("TXN-" + System.currentTimeMillis() + "-" + (int)
-            // (Math.random() * 1000))
-            // .paymentStatus(Payment.PaymentStatus.SUCCESS)
-            // .createdAt(LocalDateTime.now())
-            // .build();
-            // paymentRepository.save(payment);
-            //
-            //// // Folio Posting for Payment
-            //// Folio folio =
-            // folioRepository.findByReservation_IdAndIsDeletedFalse(res.getId()).orElse(null);
-            //// if (folio != null) {
-            //// FolioPosting paymentPosting = FolioPosting.builder()
-            //// .folio(folio)
-            //// .postingDate(LocalDateTime.now())
-            //// .source("Payment")
-            //// .description("Checkout Payment - " + request.getPaymentMethod())
-            //// .debitAmount(BigDecimal.ZERO)
-            //// .taxAmount(BigDecimal.ZERO)
-            //// .totalAmount(request.getAmountToCollect())
-            //// .paidAmount(request.getAmountToCollect())
-            //// .isDeleted(false)
-            //// .build();
-            //// folioPostingRepository.save(paymentPosting);
-            ////
-            //// folio.setTotalPayments(folio.getTotalPayments().add(paymentPosting.getTotalAmount()));
-            //// folio.setBalance(folio.getBalance().subtract(paymentPosting.getTotalAmount()));
-            //// folioRepository.save(folio);
-            //
-            // // Update paidAmount on the original Reservation folio posting
-            //// updateReservationFolioPosting(folio.getId(), request.getAmountToCollect());
-            // }
-            // }
-
-            // Recalculate bill status based on all payments
-            BigDecimal totalPaid = paymentRepository.findByBill_Id(bill.getId()).stream()
-                    .filter(p -> p.getPaymentStatus() == Payment.PaymentStatus.SUCCESS).map(Payment::getAmount)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-            if (totalPaid.compareTo(bill.getTotalAmount()) >= 0) {
-                bill.setBillStatus(Bill.BillStatus.PAID);
-            } else if (totalPaid.compareTo(BigDecimal.ZERO) > 0) {
-                bill.setBillStatus(Bill.BillStatus.PARTIALLY_PAID);
-            } else {
-                bill.setBillStatus(Bill.BillStatus.ISSUED);
-            }
-            bill.setUpdatedAt(LocalDateTime.now());
-            billRepository.save(bill);
-
             // Write Room Audit Log for Check-Out
-            BigDecimal checkoutPaid = request.getAmountToCollect() != null ? request.getAmountToCollect()
-                    : BigDecimal.ZERO;
             if (room != null) {
                 RoomAudit audit = RoomAudit.builder().room(room).booking(b).operationType("CHECK_OUT")
-                        .amountPaid(checkoutPaid).notes("Guest checked out from Room " + room.getRoomNumber()
+                        .amountPaid(amountToCollect).notes("Guest checked out from Room " + room.getRoomNumber()
                                 + ". Keys Returned: " + request.getKeysReturned())
                         .createdAt(LocalDateTime.now()).build();
                 roomAuditRepository.save(audit);
@@ -1529,7 +1531,7 @@ public class ReservationServiceImpl implements ReservationService {
             List<Reservation> reservations = reservationRepository.findReservationsInRange(startDate, endDate);
 
             List<GanttBookingResponse> response = reservations.stream().flatMap(res -> bookingRepository
-                            .findByReservation_IdAndIsDeletedFalse(res.getId()).stream().map(b -> mapToGanttResponse(res, b)))
+                    .findByReservation_IdAndIsDeletedFalse(res.getId()).stream().map(b -> mapToGanttResponse(res, b)))
                     .collect(Collectors.toList());
 
             return StandardResponse.success(response, "Gantt chart data fetched successfully");
