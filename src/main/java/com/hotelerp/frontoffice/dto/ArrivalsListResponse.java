@@ -12,7 +12,8 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ArrivalsListResponse {
-    private List<ArrivalBookingResponse> arrivals;
+    /** Reservations grouped with their bookings (one entry per reservation) */
+    private List<ReservationArrivalResponse> reservations;
     private Long pendingArrivalsCount;
     private Long checkedInCount;
     private Long totalExpectedCount;

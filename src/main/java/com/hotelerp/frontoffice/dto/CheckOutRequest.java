@@ -6,14 +6,19 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class CheckOutRequest {
-    private Long bookingId;
-    
+    /** Parent reservation to check out */
+    private Long reservationId;
+
+    /** One or more booking IDs to check out simultaneously */
+    private List<Long> bookingIds;
+
     // Clearance Step
     private Boolean keysReturned;
     private BigDecimal lateCheckOutFee;
