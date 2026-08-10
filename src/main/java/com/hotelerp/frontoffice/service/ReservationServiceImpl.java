@@ -885,7 +885,12 @@ public class ReservationServiceImpl implements ReservationService {
 
                 // Date filter based on checkout flag
                 if (checkout) {
-                    predicates.add(cb.equal(root.get("checkOutDate"), targetDate));
+                    predicates.add(cb.lessThanOrEqualTo(root.get("checkInDate"), targetDate));
+                    predicates.add(cb.greaterThanOrEqualTo(root.get("checkOutDate"), targetDate));
+                    predicates.add(cb.or(
+                            cb.equal(root.get("bookingStatus").get("code"), "CHECKED_IN"),
+                            cb.equal(root.get("bookingStatus").get("code"), "CHECKED_OUT")
+                    ));
                 } else {
                     predicates.add(cb.equal(root.get("checkInDate"), targetDate));
                 }
@@ -924,11 +929,13 @@ public class ReservationServiceImpl implements ReservationService {
             if (checkout) {
                 pendingCount = bookingRepository
                         .count((root, query, cb) -> cb.and(cb.equal(root.get("isDeleted"), false),
-                                cb.equal(root.get("checkOutDate"), targetDate),
+                                cb.lessThanOrEqualTo(root.get("checkInDate"), targetDate),
+                                cb.greaterThanOrEqualTo(root.get("checkOutDate"), targetDate),
                                 cb.equal(root.get("bookingStatus").get("code"), "CHECKED_IN")));
                 processedCount = bookingRepository
                         .count((root, query, cb) -> cb.and(cb.equal(root.get("isDeleted"), false),
-                                cb.equal(root.get("checkOutDate"), targetDate),
+                                cb.lessThanOrEqualTo(root.get("checkInDate"), targetDate),
+                                cb.greaterThanOrEqualTo(root.get("checkOutDate"), targetDate),
                                 cb.equal(root.get("bookingStatus").get("code"), "CHECKED_OUT")));
             } else {
                 pendingCount = bookingRepository
