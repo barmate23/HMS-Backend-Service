@@ -104,6 +104,26 @@ public class Reservation {
     @Column(name = "bookingFrom", length = 100)
     private String bookingFrom;
 
+    // ── Address ────────────────────────────────────────────────────────────
+
+    @Column(name = "addressLine1", length = 255)
+    private String addressLine1;
+
+    @Column(name = "addressLine2", length = 255)
+    private String addressLine2;
+
+    @Column(name = "city", length = 100)
+    private String city;
+
+    @Column(name = "state", length = 100)
+    private String state;
+
+    @Column(name = "country", length = 100)
+    private String country;
+
+    @Column(name = "postCode", length = 20)
+    private String postCode;
+
     // ── Notes ─────────────────────────────────────────────────────────────
 
     @Column(name = "specialRequests", columnDefinition = "TEXT")

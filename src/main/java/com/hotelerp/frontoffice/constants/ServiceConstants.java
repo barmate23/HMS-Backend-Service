@@ -33,6 +33,12 @@ public class ServiceConstants {
     public static final String GET_AVAILABLE_ROOMS = "/available";
     public static final String GET_ROOM_STATUS_BY_DATE = "/getRoomStatusByDate";
 
+    // ── Address ────────────────────────────────────────────────────────────
+    public static final String ADDRESS_BASE_URL = "/api/frontOfficeService/v1/address";
+    public static final String GET_COUNTRIES = "/countries";
+    public static final String GET_STATES = "/states";
+    public static final String GET_CITIES = "/cities";
+
     // Legacy alias kept so existing GuestController compile unchanged
     public static final String BASE_URL = GUEST_BASE_URL;
     public static final String GET_ROOM_AUDITS = "/getRooAudit";

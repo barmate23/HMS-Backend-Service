@@ -79,6 +79,12 @@ public class ReservationDetailResponse {
     private String marketSegment;
     private String bookingReference;
     private String bookingFrom;
+    private String addressLine1;
+    private String addressLine2;
+    private String city;
+    private String state;
+    private String country;
+    private String postCode;
     private BigDecimal totalPrice; // before discount
     private BigDecimal totalDiscount;
     private BigDecimal grandTotal; // after discount
