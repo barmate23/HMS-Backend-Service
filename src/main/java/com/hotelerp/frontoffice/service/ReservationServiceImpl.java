@@ -1276,7 +1276,6 @@ public class ReservationServiceImpl implements ReservationService {
                 return "CHECKED_IN".equals(code) || "CHECKED_OUT".equals(code);
             });
             if (allCheckedIn) {
-                res.setReservationStatus(getStatusByCode("RESERVATION_STATUS", "CHECKED_IN"));
                 res.setUpdatedAt(LocalDateTime.now());
                 reservationRepository.save(res);
             }
