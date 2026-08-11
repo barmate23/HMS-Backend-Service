@@ -733,6 +733,7 @@ public class ReservationServiceImpl implements ReservationService {
                 .bookingFrom(r.getBookingFrom())
                 .grandTotal(grandTotal)
                 .gstPercent(gstPercent)
+                .amountExcludingGst(calculateAmountExcludingGst(grandTotal, gstPercent))
                 .paidAmount(paidAmount)
                 .build();
     }
@@ -813,7 +814,8 @@ public class ReservationServiceImpl implements ReservationService {
                 .city(r.getCity()).state(r.getState()).country(r.getCountry())
                 .postCode(r.getPostCode())
                 .totalPrice(totalPrice).totalDiscount(totalDiscount)
-                .grandTotal(grandTotal).gstPercent(gstPercent).paidAmount(paidAmount)
+                .grandTotal(grandTotal).gstPercent(gstPercent)
+                .amountExcludingGst(calculateAmountExcludingGst(grandTotal, gstPercent)).paidAmount(paidAmount)
                 .specialRequests(r.getSpecialRequests()).notes(r.getNotes())
                 .accompanyingGuests(accompanyingGuestRepository.findByReservation_IdAndIsDeletedFalse(r.getId())
                         .stream().map(this::mapAccompanyingGuestToResponse).collect(Collectors.toList()))
@@ -849,6 +851,17 @@ public class ReservationServiceImpl implements ReservationService {
         return count > 1 ? "REPEAT" : "NEW";
     }
 
+    private BigDecimal calculateAmountExcludingGst(BigDecimal amountIncludingGst, Integer gstPercent) {
+        if (amountIncludingGst == null) {
+            return BigDecimal.ZERO;
+        }
+        if (gstPercent == null || gstPercent <= 0) {
+            return amountIncludingGst;
+        }
+        BigDecimal divisor = BigDecimal.valueOf(100 + gstPercent);
+        return amountIncludingGst.multiply(BigDecimal.valueOf(100)).divide(divisor, 2, RoundingMode.HALF_UP);
+    }
+
     private BookingResponse mapBookingToResponse(Booking b) {
         Room room = b.getRoom();
         return BookingResponse.builder().id(b.getId())
@@ -860,6 +873,7 @@ public class ReservationServiceImpl implements ReservationService {
                 .ratePerNight(b.getRatePerNight()).ratePlanCharge(b.getRatePlanCharge()).totalPrice(b.getTotalPrice())
                 .discountPercentage(b.getDiscountPercentage()).discountAmount(b.getDiscountAmount())
                 .finalPrice(b.getFinalPrice()).gsrPercent(b.getGsrPercent())
+                .amountExcludingGst(calculateAmountExcludingGst(b.getFinalPrice(), b.getGsrPercent()))
                 .bookingStatus(b.getBookingStatus() != null ? b.getBookingStatus().getValue() : null)
                 .createdAt(b.getCreatedAt()).updatedAt(b.getUpdatedAt()).build();
     }
@@ -913,8 +927,7 @@ public class ReservationServiceImpl implements ReservationService {
 
                 // Date filter based on checkout flag
                 if (checkout) {
-                    predicates.add(cb.lessThanOrEqualTo(root.get("checkInDate"), targetDate));
-                    predicates.add(cb.greaterThanOrEqualTo(root.get("checkOutDate"), targetDate));
+                    predicates.add(cb.equal(root.get("checkOutDate"), targetDate));
                     predicates.add(cb.or(
                             cb.equal(root.get("bookingStatus").get("code"), "CHECKED_IN"),
                             cb.equal(root.get("bookingStatus").get("code"), "CHECKED_OUT")));
@@ -956,13 +969,11 @@ public class ReservationServiceImpl implements ReservationService {
             if (checkout) {
                 pendingCount = bookingRepository
                         .count((root, query, cb) -> cb.and(cb.equal(root.get("isDeleted"), false),
-                                cb.lessThanOrEqualTo(root.get("checkInDate"), targetDate),
-                                cb.greaterThanOrEqualTo(root.get("checkOutDate"), targetDate),
+                                cb.equal(root.get("checkOutDate"), targetDate),
                                 cb.equal(root.get("bookingStatus").get("code"), "CHECKED_IN")));
                 processedCount = bookingRepository
                         .count((root, query, cb) -> cb.and(cb.equal(root.get("isDeleted"), false),
-                                cb.lessThanOrEqualTo(root.get("checkInDate"), targetDate),
-                                cb.greaterThanOrEqualTo(root.get("checkOutDate"), targetDate),
+                                cb.equal(root.get("checkOutDate"), targetDate),
                                 cb.equal(root.get("bookingStatus").get("code"), "CHECKED_OUT")));
             } else {
                 pendingCount = bookingRepository
@@ -1048,6 +1059,7 @@ public class ReservationServiceImpl implements ReservationService {
                             .eta(checkout ? res.getCheckOutTime() : res.getCheckInTime())
                             .balance(balance)
                             .gstPercent(b.getGsrPercent())
+                            .amountExcludingGst(calculateAmountExcludingGst(balance, b.getGsrPercent()))
                             .bookingStatus(statusStr)
                             .checkInDate(b.getCheckInDate())
                             .checkOutDate(b.getCheckOutDate())
@@ -1087,6 +1099,7 @@ public class ReservationServiceImpl implements ReservationService {
                         .eta(checkout ? res.getCheckOutTime() : res.getCheckInTime())
                         .totalBalance(totalBalance)
                         .gstPercent(gstPct)
+                        .amountExcludingGst(calculateAmountExcludingGst(totalBalance, gstPct))
                         .overallStatus(overallStatus)
                         .numberOfRooms(resBkgs.size())
                         .bookings(bkgResponses)

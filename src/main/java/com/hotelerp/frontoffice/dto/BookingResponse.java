@@ -39,6 +39,7 @@ public class BookingResponse {
     private BigDecimal discountAmount;
     private BigDecimal finalPrice;
     private Integer gsrPercent;
+    private BigDecimal amountExcludingGst;
 
     // ── Status ────────────────────────────────────────────────────────────
     private String bookingStatus;

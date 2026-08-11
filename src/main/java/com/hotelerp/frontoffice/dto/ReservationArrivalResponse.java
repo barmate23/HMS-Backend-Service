@@ -37,6 +37,7 @@ public class ReservationArrivalResponse {
     // Financials — aggregate across all bookings in this reservation
     private BigDecimal totalBalance;
     private Integer gstPercent;
+    private BigDecimal amountExcludingGst;
 
     // Overall status derived from bookings
     private String overallStatus;

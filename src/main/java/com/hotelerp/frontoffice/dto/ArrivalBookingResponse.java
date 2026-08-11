@@ -23,6 +23,7 @@ public class ArrivalBookingResponse {
     private LocalTime eta;
     private BigDecimal balance;
     private Integer gstPercent;
+    private BigDecimal amountExcludingGst;
     private String bookingStatus;
     private LocalDate checkInDate;
     private LocalDate checkOutDate;
