@@ -1,6 +1,7 @@
 package com.hotelerp.frontoffice.service;
 
 import com.hotelerp.frontoffice.common.StandardResponse;
+import com.hotelerp.frontoffice.config.LoginUser;
 import com.hotelerp.frontoffice.dto.*;
 import com.hotelerp.frontoffice.entity.*;
 import com.hotelerp.frontoffice.repository.*;
@@ -43,6 +44,8 @@ public class ReservationServiceImpl implements ReservationService {
     private final FolioRepository folioRepository;
     private final FolioPostingRepository folioPostingRepository;
     private final AccompanyingGuestRepository accompanyingGuestRepository;
+    private final HotelRepository hotelRepository;
+    private final LoginUser loginUser;
 
     // ── Create ─────────────────────────────────────────────────────────────
 
@@ -131,7 +134,16 @@ public class ReservationServiceImpl implements ReservationService {
             }
             CommonMaster bookingStatus = commonMasterRepository.findByValue("CONFIRMED");
 
-            Reservation reservation = Reservation.builder().guest(guest).checkInDate(req.getCheckInDate())
+            Long jwtHotelId = loginUser != null ? loginUser.getHotelId() : null;
+            Hotel hotel = null;
+            if (jwtHotelId != null) {
+                hotel = hotelRepository.findById(jwtHotelId).orElse(null);
+            }
+            if (hotel == null && !rooms.isEmpty() && rooms.get(0).getFloor() != null) {
+                hotel = rooms.get(0).getFloor().getHotel();
+            }
+
+            Reservation reservation = Reservation.builder().guest(guest).hotel(hotel).checkInDate(req.getCheckInDate())
                     .checkInTime(req.getCheckInTime() != null ? req.getCheckInTime() : LocalTime.of(14, 0))
                     .checkOutDate(req.getCheckOutDate())
                     .checkOutTime(req.getCheckOutTime() != null ? req.getCheckOutTime() : LocalTime.of(11, 0))
@@ -454,11 +466,18 @@ public class ReservationServiceImpl implements ReservationService {
     public StandardResponse<?> getReservationById(Long id) {
         log.info("Fetching reservation id={}", id);
         try {
-            return reservationRepository.findByIdAndIsDeletedFalse(id)
-                    .map(r -> StandardResponse.success(
-                            mapToDetailResponse(r, bookingRepository.findByReservation_IdAndIsDeletedFalse(id)),
-                            "Reservation fetched successfully"))
-                    .orElseGet(() -> StandardResponse.error("Reservation not found", "NOT_FOUND", "id", null));
+            Reservation r = reservationRepository.findByIdAndIsDeletedFalse(id).orElse(null);
+            if (r == null) {
+                return StandardResponse.error("Reservation not found", "NOT_FOUND", "id", null);
+            }
+            if (loginUser != null && loginUser.getHotelId() != null) {
+                if (r.getHotel() != null && !loginUser.getHotelId().equals(r.getHotel().getId())) {
+                    return StandardResponse.error("Reservation not found", "NOT_FOUND", "id", null);
+                }
+            }
+            return StandardResponse.success(
+                    mapToDetailResponse(r, bookingRepository.findByReservation_IdAndIsDeletedFalse(id)),
+                    "Reservation fetched successfully");
         } catch (Exception e) {
             log.error("Error fetching reservation id={}: ", id, e);
             return StandardResponse.error("Failed to fetch reservation", "FETCH_ERROR", null, e.getMessage());
@@ -527,6 +546,7 @@ public class ReservationServiceImpl implements ReservationService {
         log.info("Fetching reservations for guestId={}", guestId);
         try {
             List<ReservationResponse> list = reservationRepository.findByGuest_IdAndIsDeletedFalse(guestId).stream()
+                    .filter(r -> loginUser == null || loginUser.getHotelId() == null || (r.getHotel() != null && loginUser.getHotelId().equals(r.getHotel().getId())))
                     .map(r -> mapToResponse(r, null)).collect(Collectors.toList());
             return StandardResponse.success(list, "Guest reservations fetched successfully");
         } catch (Exception e) {
@@ -681,6 +701,16 @@ public class ReservationServiceImpl implements ReservationService {
 
         Guest g = r.getGuest();
 
+        Long hotelId = r.getHotel() != null ? r.getHotel().getId() : null;
+        String hotelName = r.getHotel() != null ? r.getHotel().getName() : null;
+        if (hotelId == null && !bookings.isEmpty() && bookings.get(0).getRoom() != null
+                && bookings.get(0).getRoom().getFloor() != null
+                && bookings.get(0).getRoom().getFloor().getHotel() != null) {
+            Hotel h = bookings.get(0).getRoom().getFloor().getHotel();
+            hotelId = h.getId();
+            hotelName = h.getName();
+        }
+
         List<ReservationResponse.RoomSummary> roomSummaries = bookings.stream()
                 .filter(Objects::nonNull)
                 .filter(b -> b.getRoom() != null)
@@ -703,6 +733,8 @@ public class ReservationServiceImpl implements ReservationService {
         return ReservationResponse.builder()
                 .id(r.getId())
                 .confirmationNumber(r.getConfirmationNumber())
+                .hotelId(hotelId)
+                .hotelName(hotelName)
                 .guestId(g != null ? g.getId() : null)
                 .guestInitials(
                         g != null
@@ -925,6 +957,11 @@ public class ReservationServiceImpl implements ReservationService {
                 List<Predicate> predicates = new ArrayList<>();
                 predicates.add(cb.equal(root.get("isDeleted"), false));
 
+                // Hotel filter from JWT
+                if (loginUser != null && loginUser.getHotelId() != null) {
+                    predicates.add(cb.equal(root.get("reservation").get("hotel").get("id"), loginUser.getHotelId()));
+                }
+
                 // Date filter based on checkout flag
                 if (checkout) {
                     predicates.add(cb.equal(root.get("checkOutDate"), targetDate));
@@ -965,24 +1002,33 @@ public class ReservationServiceImpl implements ReservationService {
             // But we'll do quick count queries for stats
             long pendingCount;
             long processedCount;
+            Long jwtHotelId = loginUser != null ? loginUser.getHotelId() : null;
 
             if (checkout) {
                 pendingCount = bookingRepository
-                        .count((root, query, cb) -> cb.and(cb.equal(root.get("isDeleted"), false),
+                        .count((root, query, cb) -> cb.and(
+                                cb.equal(root.get("isDeleted"), false),
+                                jwtHotelId != null ? cb.equal(root.get("reservation").get("hotel").get("id"), jwtHotelId) : cb.conjunction(),
                                 cb.equal(root.get("checkOutDate"), targetDate),
                                 cb.equal(root.get("bookingStatus").get("code"), "CHECKED_IN")));
                 processedCount = bookingRepository
-                        .count((root, query, cb) -> cb.and(cb.equal(root.get("isDeleted"), false),
+                        .count((root, query, cb) -> cb.and(
+                                cb.equal(root.get("isDeleted"), false),
+                                jwtHotelId != null ? cb.equal(root.get("reservation").get("hotel").get("id"), jwtHotelId) : cb.conjunction(),
                                 cb.equal(root.get("checkOutDate"), targetDate),
                                 cb.equal(root.get("bookingStatus").get("code"), "CHECKED_OUT")));
             } else {
                 pendingCount = bookingRepository
-                        .count((root, query, cb) -> cb.and(cb.equal(root.get("isDeleted"), false),
+                        .count((root, query, cb) -> cb.and(
+                                cb.equal(root.get("isDeleted"), false),
+                                jwtHotelId != null ? cb.equal(root.get("reservation").get("hotel").get("id"), jwtHotelId) : cb.conjunction(),
                                 cb.equal(root.get("checkInDate"), targetDate),
                                 cb.or(cb.equal(root.get("bookingStatus").get("code"), "PENDING"),
                                         cb.equal(root.get("bookingStatus").get("code"), "CONFIRMED"))));
                 processedCount = bookingRepository
-                        .count((root, query, cb) -> cb.and(cb.equal(root.get("isDeleted"), false),
+                        .count((root, query, cb) -> cb.and(
+                                cb.equal(root.get("isDeleted"), false),
+                                jwtHotelId != null ? cb.equal(root.get("reservation").get("hotel").get("id"), jwtHotelId) : cb.conjunction(),
                                 cb.equal(root.get("checkInDate"), targetDate),
                                 cb.equal(root.get("bookingStatus").get("code"), "CHECKED_IN")));
             }
@@ -1000,29 +1046,24 @@ public class ReservationServiceImpl implements ReservationService {
                 Reservation res = firstBkg.getReservation();
                 Guest g = res.getGuest();
 
-                // Build booking-level entries and accumulate total balance
-                BigDecimal totalBalance = BigDecimal.ZERO;
+                // Build booking-level entries and accumulate total base amount and total paid amount
+                BigDecimal totalBaseAmount = BigDecimal.ZERO;
+                BigDecimal totalPaidAmount = BigDecimal.ZERO;
                 List<ArrivalBookingResponse> bkgResponses = new ArrayList<>();
 
                 for (Booking b : resBkgs) {
-                    BigDecimal totalCharges;
+                    BigDecimal baseAmount = b.getFinalPrice() != null ? b.getFinalPrice() : BigDecimal.ZERO;
                     BigDecimal paidAmount = BigDecimal.ZERO;
                     Optional<Bill> optBill = billRepository.findByBooking_Id(b.getId());
                     if (optBill.isPresent()) {
                         Bill bill = optBill.get();
-                        totalCharges = bill.getTotalAmount();
                         paidAmount = paymentRepository.findByBill_Id(bill.getId()).stream()
                                 .filter(p -> p.getPaymentStatus() == Payment.PaymentStatus.SUCCESS)
                                 .map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
-                    } else {
-                        BigDecimal roomCharges = b.getFinalPrice() != null ? b.getFinalPrice() : BigDecimal.ZERO;
-                        int gstPct = b.getGsrPercent() != null ? b.getGsrPercent() : 0;
-                        BigDecimal taxAmount = roomCharges.multiply(new BigDecimal(gstPct)).divide(new BigDecimal(100),
-                                2, RoundingMode.HALF_UP);
-                        totalCharges = roomCharges.add(taxAmount);
                     }
-                    BigDecimal balance = totalCharges.subtract(paidAmount);
-                    totalBalance = totalBalance.add(balance);
+
+                    totalBaseAmount = totalBaseAmount.add(baseAmount);
+                    totalPaidAmount = totalPaidAmount.add(paidAmount);
 
                     String code = b.getBookingStatus() != null ? b.getBookingStatus().getCode() : "";
                     String statusStr;
@@ -1057,9 +1098,9 @@ public class ReservationServiceImpl implements ReservationService {
                             .roomNumber(b.getRoom() != null ? b.getRoom().getRoomNumber() : null)
                             .roomId(b.getRoom() != null ? b.getRoom().getId() : null)
                             .eta(checkout ? res.getCheckOutTime() : res.getCheckInTime())
-                            .balance(balance)
+                            .baseAmount(baseAmount)
+                            .paidAmount(paidAmount)
                             .gstPercent(b.getGsrPercent())
-                            .amountExcludingGst(calculateAmountExcludingGst(balance, b.getGsrPercent()))
                             .bookingStatus(statusStr)
                             .checkInDate(b.getCheckInDate())
                             .checkOutDate(b.getCheckOutDate())
@@ -1097,9 +1138,9 @@ public class ReservationServiceImpl implements ReservationService {
                         .checkInDate(firstBkg.getCheckInDate())
                         .checkOutDate(firstBkg.getCheckOutDate())
                         .eta(checkout ? res.getCheckOutTime() : res.getCheckInTime())
-                        .totalBalance(totalBalance)
+                        .totalBaseAmount(totalBaseAmount)
+                        .paidAmount(totalPaidAmount)
                         .gstPercent(gstPct)
-                        .amountExcludingGst(calculateAmountExcludingGst(totalBalance, gstPct))
                         .overallStatus(overallStatus)
                         .numberOfRooms(resBkgs.size())
                         .bookings(bkgResponses)
@@ -1703,7 +1744,8 @@ public class ReservationServiceImpl implements ReservationService {
             if (endDate == null)
                 endDate = LocalDate.now().plusDays(23);
 
-            List<Reservation> reservations = reservationRepository.findReservationsInRange(startDate, endDate);
+            Long hotelId = loginUser != null ? loginUser.getHotelId() : null;
+            List<Reservation> reservations = reservationRepository.findReservationsInRange(startDate, endDate, hotelId);
 
             List<GanttBookingResponse> response = reservations.stream().flatMap(res -> bookingRepository
                     .findByReservation_IdAndIsDeletedFalse(res.getId()).stream().map(b -> mapToGanttResponse(res, b)))

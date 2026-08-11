@@ -9,6 +9,7 @@ import java.time.LocalTime;
 @Entity
 @Table(name = "reservations", indexes = {
         @Index(name = "idx_res_guest_id", columnList = "guestId"),
+        @Index(name = "idx_res_hotel_id", columnList = "hotelId"),
         @Index(name = "idx_res_checkin_date", columnList = "checkInDate"),
         @Index(name = "idx_res_status", columnList = "reservationStatus"),
         @Index(name = "idx_res_is_deleted", columnList = "isDeleted")
@@ -25,6 +26,10 @@ public class Reservation {
     private Long id;
 
     // ── Relations ─────────────────────────────────────────────────────────
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "hotelId")
+    private Hotel hotel;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "guestId", nullable = false)

@@ -35,9 +35,9 @@ public class ReservationArrivalResponse {
     private LocalTime eta;
 
     // Financials — aggregate across all bookings in this reservation
-    private BigDecimal totalBalance;
+    private BigDecimal totalBaseAmount;
+    private BigDecimal paidAmount;
     private Integer gstPercent;
-    private BigDecimal amountExcludingGst;
 
     // Overall status derived from bookings
     private String overallStatus;

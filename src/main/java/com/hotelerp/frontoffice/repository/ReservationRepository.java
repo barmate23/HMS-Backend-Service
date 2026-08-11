@@ -26,10 +26,12 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long>,
      */
     @Query("SELECT r FROM Reservation r " +
            "WHERE r.isDeleted = false " +
+           "AND (:hotelId IS NULL OR r.hotel.id = :hotelId) " +
            "AND (r.reservationStatus IS NULL OR r.reservationStatus.code NOT IN ('CANCELLED', 'NO_SHOW')) " +
            "AND r.checkInDate < :endDate " +
            "AND r.checkOutDate > :startDate")
     List<Reservation> findReservationsInRange(
             @Param("startDate") LocalDate startDate,
-            @Param("endDate")   LocalDate endDate);
+            @Param("endDate")   LocalDate endDate,
+            @Param("hotelId")   Long hotelId);
 }

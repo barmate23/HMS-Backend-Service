@@ -21,9 +21,9 @@ public class ArrivalBookingResponse {
     private Integer numberOfNights;
     private String roomTypeName;
     private LocalTime eta;
-    private BigDecimal balance;
+    private BigDecimal baseAmount;
+    private BigDecimal paidAmount;
     private Integer gstPercent;
-    private BigDecimal amountExcludingGst;
     private String bookingStatus;
     private LocalDate checkInDate;
     private LocalDate checkOutDate;
