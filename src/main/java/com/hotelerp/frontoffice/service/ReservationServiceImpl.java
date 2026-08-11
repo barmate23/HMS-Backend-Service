@@ -1631,9 +1631,7 @@ public class ReservationServiceImpl implements ReservationService {
                 String code = bk.getBookingStatus() != null ? bk.getBookingStatus().getCode() : "";
                 return "CHECKED_OUT".equals(code);
             });
-            if (allCheckedOut) {
-                res.setReservationStatus(getStatusByCode("RESERVATION_STATUS", "CHECKED_OUT"));
-            }
+
             reservationRepository.save(res);
 
             return StandardResponse.success(null,
