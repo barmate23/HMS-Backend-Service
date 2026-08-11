@@ -1044,6 +1044,7 @@ public class ReservationServiceImpl implements ReservationService {
                                     ? b.getRoom().getRoomType().getName()
                                     : "")
                             .roomNumber(b.getRoom() != null ? b.getRoom().getRoomNumber() : null)
+                            .roomId(b.getRoom() != null ? b.getRoom().getId() : null)
                             .eta(checkout ? res.getCheckOutTime() : res.getCheckInTime())
                             .balance(balance)
                             .gstPercent(b.getGsrPercent())

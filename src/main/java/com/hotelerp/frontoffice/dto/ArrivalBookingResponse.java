@@ -27,4 +27,5 @@ public class ArrivalBookingResponse {
     private LocalDate checkInDate;
     private LocalDate checkOutDate;
     private String roomNumber;
+    private Long roomId;
 }
