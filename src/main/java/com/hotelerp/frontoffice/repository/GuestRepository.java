@@ -12,9 +12,15 @@ import java.util.Optional;
 @Repository
 public interface GuestRepository extends JpaRepository<Guest, Long> {
     List<Guest> findByIsDeletedFalse();
+    List<Guest> findByHotel_IdAndIsDeletedFalse(Long hotelId);
+
     boolean existsByEmailAndIsDeletedFalse(String email);
-    Optional<Guest> findByFirstNameAndLastNameAndIsDeletedFalse(String firstName,String lastName);
+    boolean existsByEmailAndHotel_IdAndIsDeletedFalse(String email, Long hotelId);
     boolean existsByEmailAndIdNotAndIsDeletedFalse(String email, Long id);
+
+    Optional<Guest> findByFirstNameAndLastNameAndIsDeletedFalse(String firstName, String lastName);
+    Optional<Guest> findByEmailAndIsDeletedFalse(String email);
+    Optional<Guest> findByEmailAndHotel_IdAndIsDeletedFalse(String email, Long hotelId);
 
     @Query("SELECT g FROM Guest g WHERE g.isDeleted = false AND (" +
            "LOWER(g.firstName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
@@ -23,5 +29,10 @@ public interface GuestRepository extends JpaRepository<Guest, Long> {
            "LOWER(g.phone) LIKE LOWER(CONCAT('%', :search, '%')))")
     List<Guest> searchGuests(@Param("search") String search);
 
-    Optional<Guest> findByEmailAndIsDeletedFalse(String email);
+    @Query("SELECT g FROM Guest g WHERE g.isDeleted = false AND g.hotel.id = :hotelId AND (" +
+           "LOWER(g.firstName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(g.lastName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(g.email) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(g.phone) LIKE LOWER(CONCAT('%', :search, '%')))")
+    List<Guest> searchGuestsByHotel(@Param("search") String search, @Param("hotelId") Long hotelId);
 }

@@ -15,6 +15,8 @@ import java.math.BigDecimal;
 public class GuestResponse {
 
     private Long id;
+    private Long hotelId;
+    private String hotelName;
 
     // Personal
     private Guest.Title title;

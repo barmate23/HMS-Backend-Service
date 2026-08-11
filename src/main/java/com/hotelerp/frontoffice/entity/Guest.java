@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "guests", indexes = {
+    @Index(name = "idx_guest_hotel_id", columnList = "hotelId"),
     @Index(name = "idx_guest_email", columnList = "email"),
     @Index(name = "idx_guest_phone", columnList = "phone"),
     @Index(name = "idx_guest_first_name", columnList = "firstName"),
@@ -22,6 +23,11 @@ public class Guest {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
     private Long id;
+
+    // --- Hotel ---
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "hotelId")
+    private Hotel hotel;
 
     // --- Personal Info ---
     @Enumerated(EnumType.STRING)

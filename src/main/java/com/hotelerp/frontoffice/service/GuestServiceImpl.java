@@ -1,11 +1,14 @@
 package com.hotelerp.frontoffice.service;
 
 import com.hotelerp.frontoffice.common.StandardResponse;
+import com.hotelerp.frontoffice.config.LoginUser;
 import com.hotelerp.frontoffice.dto.GuestRequest;
 import com.hotelerp.frontoffice.dto.GuestResponse;
 import com.hotelerp.frontoffice.entity.Guest;
+import com.hotelerp.frontoffice.entity.Hotel;
 import com.hotelerp.frontoffice.repository.FolioRepository;
 import com.hotelerp.frontoffice.repository.GuestRepository;
+import com.hotelerp.frontoffice.repository.HotelRepository;
 import com.hotelerp.frontoffice.repository.ReservationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +29,8 @@ public class GuestServiceImpl implements GuestService {
     private final GuestRepository guestRepository;
     private final ReservationRepository reservationRepository;
     private final FolioRepository folioRepository;
+    private final HotelRepository hotelRepository;
+    private final LoginUser loginUser;
 
     // ── Create ─────────────────────────────────────────────────────────────
 
@@ -34,12 +39,17 @@ public class GuestServiceImpl implements GuestService {
     public StandardResponse<?> createGuest(GuestRequest request) {
         log.info("Request received to create guest with email: {}", request.getEmail());
         try {
-            if (guestRepository.existsByEmailAndIsDeletedFalse(request.getEmail())) {
-                log.warn("Create guest failed: Email {} already exists", request.getEmail());
+            Long hotelId = loginUser.getHotelId();
+
+            if (guestRepository.existsByEmailAndHotel_IdAndIsDeletedFalse(request.getEmail(), hotelId)) {
+                log.warn("Create guest failed: Email {} already exists for hotel {}", request.getEmail(), hotelId);
                 return StandardResponse.error("Email already exists", "DUPLICATE_EMAIL", "email", null);
             }
 
-            Guest guest = buildGuest(request);
+            Hotel hotel = hotelRepository.findById(hotelId)
+                    .orElseThrow(() -> new RuntimeException("Hotel not found: " + hotelId));
+
+            Guest guest = buildGuest(request, hotel);
             Guest saved = guestRepository.save(guest);
 
             log.info("Guest created successfully with ID: {}", saved.getId());
@@ -106,9 +116,10 @@ public class GuestServiceImpl implements GuestService {
     public StandardResponse<?> getAllGuests(String search) {
         log.info("Fetching all guests, search={}", search);
         try {
+            Long hotelId = loginUser.getHotelId();
             List<Guest> guests = (search != null && !search.isBlank())
-                    ? guestRepository.searchGuests(search.trim())
-                    : guestRepository.findByIsDeletedFalse();
+                    ? guestRepository.searchGuestsByHotel(search.trim(), hotelId)
+                    : guestRepository.findByHotel_IdAndIsDeletedFalse(hotelId);
 
             List<GuestResponse> responses = guests.stream()
                     .map(this::mapToResponse)
@@ -154,9 +165,10 @@ public class GuestServiceImpl implements GuestService {
     // ── Helpers ────────────────────────────────────────────────────────────
 
     /** Build a new Guest entity from a request. */
-    private Guest buildGuest(GuestRequest req) {
+    private Guest buildGuest(GuestRequest req, Hotel hotel) {
         Guest guest = new Guest();
         applyFields(guest, req);
+        guest.setHotel(hotel);
         guest.setIsDeleted(false);
         guest.setIsActive(true);
         return guest;
@@ -193,6 +205,8 @@ public class GuestServiceImpl implements GuestService {
 
         return GuestResponse.builder()
                 .id(g.getId())
+                .hotelId(g.getHotel() != null ? g.getHotel().getId() : null)
+                .hotelName(g.getHotel() != null ? g.getHotel().getName() : null)
                 .title(g.getTitle())
                 .firstName(g.getFirstName())
                 .lastName(g.getLastName())
