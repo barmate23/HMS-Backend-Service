@@ -547,7 +547,8 @@ public class ReservationServiceImpl implements ReservationService {
         log.info("Fetching reservations for guestId={}", guestId);
         try {
             List<ReservationResponse> list = reservationRepository.findByGuest_IdAndIsDeletedFalse(guestId).stream()
-                    .filter(r -> loginUser == null || loginUser.getHotelId() == null || (r.getHotel() != null && loginUser.getHotelId().equals(r.getHotel().getId())))
+                    .filter(r -> loginUser == null || loginUser.getHotelId() == null
+                            || (r.getHotel() != null && loginUser.getHotelId().equals(r.getHotel().getId())))
                     .map(r -> mapToResponse(r, null)).collect(Collectors.toList());
             return StandardResponse.success(list, "Guest reservations fetched successfully");
         } catch (Exception e) {
@@ -1023,27 +1024,35 @@ public class ReservationServiceImpl implements ReservationService {
                 pendingCount = bookingRepository
                         .count((root, query, cb) -> cb.and(
                                 cb.equal(root.get("isDeleted"), false),
-                                jwtHotelId != null ? cb.equal(root.get("reservation").get("hotel").get("id"), jwtHotelId) : cb.conjunction(),
+                                jwtHotelId != null
+                                        ? cb.equal(root.get("reservation").get("hotel").get("id"), jwtHotelId)
+                                        : cb.conjunction(),
                                 cb.equal(root.get("checkOutDate"), targetDate),
                                 cb.equal(root.get("bookingStatus").get("code"), "CHECKED_IN")));
                 processedCount = bookingRepository
                         .count((root, query, cb) -> cb.and(
                                 cb.equal(root.get("isDeleted"), false),
-                                jwtHotelId != null ? cb.equal(root.get("reservation").get("hotel").get("id"), jwtHotelId) : cb.conjunction(),
+                                jwtHotelId != null
+                                        ? cb.equal(root.get("reservation").get("hotel").get("id"), jwtHotelId)
+                                        : cb.conjunction(),
                                 cb.equal(root.get("checkOutDate"), targetDate),
                                 cb.equal(root.get("bookingStatus").get("code"), "CHECKED_OUT")));
             } else {
                 pendingCount = bookingRepository
                         .count((root, query, cb) -> cb.and(
                                 cb.equal(root.get("isDeleted"), false),
-                                jwtHotelId != null ? cb.equal(root.get("reservation").get("hotel").get("id"), jwtHotelId) : cb.conjunction(),
+                                jwtHotelId != null
+                                        ? cb.equal(root.get("reservation").get("hotel").get("id"), jwtHotelId)
+                                        : cb.conjunction(),
                                 cb.equal(root.get("checkInDate"), targetDate),
                                 cb.or(cb.equal(root.get("bookingStatus").get("code"), "PENDING"),
                                         cb.equal(root.get("bookingStatus").get("code"), "CONFIRMED"))));
                 processedCount = bookingRepository
                         .count((root, query, cb) -> cb.and(
                                 cb.equal(root.get("isDeleted"), false),
-                                jwtHotelId != null ? cb.equal(root.get("reservation").get("hotel").get("id"), jwtHotelId) : cb.conjunction(),
+                                jwtHotelId != null
+                                        ? cb.equal(root.get("reservation").get("hotel").get("id"), jwtHotelId)
+                                        : cb.conjunction(),
                                 cb.equal(root.get("checkInDate"), targetDate),
                                 cb.equal(root.get("bookingStatus").get("code"), "CHECKED_IN")));
             }
@@ -1061,7 +1070,8 @@ public class ReservationServiceImpl implements ReservationService {
                 Reservation res = firstBkg.getReservation();
                 Guest g = res.getGuest();
 
-                // Build booking-level entries and accumulate total base amount and total paid amount
+                // Build booking-level entries and accumulate total base amount and total paid
+                // amount
                 BigDecimal totalBaseAmount = BigDecimal.ZERO;
                 BigDecimal totalPaidAmount = BigDecimal.ZERO;
                 List<ArrivalBookingResponse> bkgResponses = new ArrayList<>();
@@ -1769,7 +1779,7 @@ public class ReservationServiceImpl implements ReservationService {
                     .map(b -> mapToGanttResponse(b.getReservation(), b))
                     .collect(Collectors.toList());
 
-            int totalBookings = ganttBookings.size();
+            int totalBookings = reservations.size();
             int occupiedRooms = (int) ganttBookings.stream()
                     .map(GanttBookingResponse::getRoomId)
                     .filter(Objects::nonNull)
