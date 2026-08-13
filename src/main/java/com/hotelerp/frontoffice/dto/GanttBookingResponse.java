@@ -11,6 +11,7 @@ public class GanttBookingResponse {
     private Long bookingId;
     private Long reservationId;
     private String reservationRef;
+    private String confirmationNumber;
     private Long roomId;
     private String roomNumber;
     private String roomTypeName;

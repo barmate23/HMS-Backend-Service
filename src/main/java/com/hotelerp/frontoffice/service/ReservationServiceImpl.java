@@ -1783,10 +1783,38 @@ public class ReservationServiceImpl implements ReservationService {
                     })
                     .count();
 
+            // Build grouped reservation summaries (by confirmationNumber)
+            Map<String, List<Booking>> byConfirmation = allBookings.stream()
+                    .filter(b -> b.getReservation() != null)
+                    .collect(Collectors.groupingBy(
+                            b -> b.getReservation().getConfirmationNumber() != null
+                                    ? b.getReservation().getConfirmationNumber()
+                                    : "RES-" + b.getReservation().getId()));
+
+            List<GanttChartResponse.ReservationSummary> reservationSummaries = byConfirmation.entrySet()
+                    .stream()
+                    .map(entry -> {
+                        String confNum = entry.getKey();
+                        List<Booking> resBookings = entry.getValue();
+                        Reservation res = resBookings.get(0).getReservation();
+                        String gName = (res.getGuest() != null)
+                                ? (res.getGuest().getFirstName() + " " + res.getGuest().getLastName()).trim()
+                                : "Unknown";
+                        return GanttChartResponse.ReservationSummary.builder()
+                                .reservationId(res.getId())
+                                .confirmationNumber(confNum)
+                                .guestName(gName)
+                                .roomCount(resBookings.size())
+                                .build();
+                    })
+                    .sorted(Comparator.comparing(GanttChartResponse.ReservationSummary::getConfirmationNumber))
+                    .collect(Collectors.toList());
+
             GanttChartResponse.Summary summary = GanttChartResponse.Summary.builder()
                     .totalBookings(totalBookings)
                     .occupiedRooms(occupiedRooms)
                     .checkedIn(checkedIn)
+                    .reservationSummaries(reservationSummaries)
                     .build();
 
             GanttChartResponse response = GanttChartResponse.builder()
@@ -1810,7 +1838,9 @@ public class ReservationServiceImpl implements ReservationService {
         Room room = b.getRoom();
 
         return GanttBookingResponse.builder().bookingId(b.getId()).reservationId(r != null ? r.getId() : null)
-                .reservationRef(r != null ? "RES-" + r.getId() : null).roomId(room != null ? room.getId() : null)
+                .reservationRef(r != null ? "RES-" + r.getId() : null)
+                .confirmationNumber(r != null ? r.getConfirmationNumber() : null)
+                .roomId(room != null ? room.getId() : null)
                 .roomNumber(room != null ? room.getRoomNumber() : null)
                 .roomTypeName(room != null && room.getRoomType() != null ? room.getRoomType().getName() : null)
                 .guestName(guestName).checkInDate(r != null ? r.getCheckInDate() : null)

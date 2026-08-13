@@ -23,5 +23,18 @@ public class GanttChartResponse {
         private int totalBookings;
         private int occupiedRooms;
         private int checkedIn;
+        /** Number of rooms booked per reservation, grouped by confirmation number */
+        private List<ReservationSummary> reservationSummaries;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ReservationSummary {
+        private Long reservationId;
+        private String confirmationNumber;
+        private String guestName;
+        private int roomCount;
     }
 }
