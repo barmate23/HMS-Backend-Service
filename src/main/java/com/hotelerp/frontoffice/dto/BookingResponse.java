@@ -5,6 +5,7 @@ import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * Represents a single room-booking line within a Reservation.
@@ -25,6 +26,7 @@ public class BookingResponse {
     private String floor;
     private String viewType;            // e.g. "Sea View", "Garden View"
     private String bedType;             // e.g. "King", "Twin"
+    private List<RoomPhotoResponse> photos;
 
     // ── Dates ─────────────────────────────────────────────────────────────
     private LocalDate checkInDate;

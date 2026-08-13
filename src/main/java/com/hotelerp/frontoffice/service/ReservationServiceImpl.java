@@ -45,6 +45,7 @@ public class ReservationServiceImpl implements ReservationService {
     private final FolioPostingRepository folioPostingRepository;
     private final AccompanyingGuestRepository accompanyingGuestRepository;
     private final HotelRepository hotelRepository;
+    private final RoomPhotoRepository roomPhotoRepository;
     private final LoginUser loginUser;
 
     // ── Create ─────────────────────────────────────────────────────────────
@@ -896,11 +897,25 @@ public class ReservationServiceImpl implements ReservationService {
 
     private BookingResponse mapBookingToResponse(Booking b) {
         Room room = b.getRoom();
+        List<RoomPhotoResponse> photoResponses = Collections.emptyList();
+        if (room != null && room.getId() != null) {
+            List<RoomPhoto> photos = roomPhotoRepository.findByRoom_Id(room.getId());
+            if (photos != null && !photos.isEmpty()) {
+                photoResponses = photos.stream().map(p -> RoomPhotoResponse.builder()
+                        .id(p.getId())
+                        .fileName(p.getFileName())
+                        .fileType(p.getFileType())
+                        .photoData(p.getPhotoData())
+                        .build()).collect(Collectors.toList());
+            }
+        }
+
         return BookingResponse.builder().id(b.getId())
                 .reservationId(b.getReservation() != null ? b.getReservation().getId() : null)
                 .roomId(room != null ? room.getId() : null).roomNumber(room != null ? room.getRoomNumber() : null)
                 .roomTypeName(room != null && room.getRoomType() != null ? room.getRoomType().getName() : null)
                 .floor(room != null && room.getFloor() != null ? room.getFloor().getFloorNumber() : null)
+                .photos(photoResponses)
                 .checkInDate(b.getCheckInDate()).checkOutDate(b.getCheckOutDate()).numberOfNights(b.getNumberOfNights())
                 .ratePerNight(b.getRatePerNight()).ratePlanCharge(b.getRatePlanCharge()).totalPrice(b.getTotalPrice())
                 .discountPercentage(b.getDiscountPercentage()).discountAmount(b.getDiscountAmount())
@@ -1747,9 +1762,37 @@ public class ReservationServiceImpl implements ReservationService {
             Long hotelId = loginUser != null ? loginUser.getHotelId() : null;
             List<Reservation> reservations = reservationRepository.findReservationsInRange(startDate, endDate, hotelId);
 
-            List<GanttBookingResponse> response = reservations.stream().flatMap(res -> bookingRepository
-                    .findByReservation_IdAndIsDeletedFalse(res.getId()).stream().map(b -> mapToGanttResponse(res, b)))
+            List<Booking> allBookings = reservations.stream().flatMap(res -> bookingRepository
+                    .findByReservation_IdAndIsDeletedFalse(res.getId()).stream()).collect(Collectors.toList());
+
+            List<GanttBookingResponse> ganttBookings = allBookings.stream()
+                    .map(b -> mapToGanttResponse(b.getReservation(), b))
                     .collect(Collectors.toList());
+
+            int totalBookings = ganttBookings.size();
+            int occupiedRooms = (int) ganttBookings.stream()
+                    .map(GanttBookingResponse::getRoomId)
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .count();
+            int checkedIn = (int) allBookings.stream()
+                    .filter(b -> {
+                        CommonMaster status = b.getBookingStatus() != null ? b.getBookingStatus()
+                                : (b.getReservation() != null ? b.getReservation().getReservationStatus() : null);
+                        return status != null && "CHECKED_IN".equalsIgnoreCase(status.getCode());
+                    })
+                    .count();
+
+            GanttChartResponse.Summary summary = GanttChartResponse.Summary.builder()
+                    .totalBookings(totalBookings)
+                    .occupiedRooms(occupiedRooms)
+                    .checkedIn(checkedIn)
+                    .build();
+
+            GanttChartResponse response = GanttChartResponse.builder()
+                    .summary(summary)
+                    .bookings(ganttBookings)
+                    .build();
 
             return StandardResponse.success(response, "Gantt chart data fetched successfully");
         } catch (Exception e) {
