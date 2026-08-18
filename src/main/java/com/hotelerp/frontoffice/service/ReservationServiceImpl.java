@@ -202,7 +202,7 @@ public class ReservationServiceImpl implements ReservationService {
 
             BigDecimal totalTaxAmount = req.getGstPercent() != null
                     ? grandTotal.multiply(BigDecimal.valueOf(req.getGstPercent()))
-                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
+                            .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
                     : BigDecimal.ZERO;
             BigDecimal totalAmount = grandTotal.add(totalTaxAmount);
 
@@ -481,7 +481,7 @@ public class ReservationServiceImpl implements ReservationService {
     @Override
     @Transactional(readOnly = true)
     public StandardResponse<?> getAllReservations(String searchText, Long statusId, LocalDate fromDate,
-                                                  LocalDate toDate, int page, int size) {
+            LocalDate toDate, int page, int size) {
         log.info("Fetching all reservations, search={}, statusId={}, from={}, to={}, page={}, size={}", searchText,
                 statusId, fromDate, toDate, page, size);
         try {
@@ -715,8 +715,8 @@ public class ReservationServiceImpl implements ReservationService {
                         .roomTypeName(
                                 b.getRoom().getRoomType() != null
                                         ? b.getRoom()
-                                        .getRoomType()
-                                        .getName()
+                                                .getRoomType()
+                                                .getName()
                                         : null)
                         .ratePlanName(
                                 r.getRatePlan() != null
@@ -734,15 +734,15 @@ public class ReservationServiceImpl implements ReservationService {
                 .guestInitials(
                         g != null
                                 ? extractInitials(
-                                g.getFirstName(),
-                                g.getLastName())
+                                        g.getFirstName(),
+                                        g.getLastName())
                                 : null)
                 .guestFullName(
                         g != null
                                 ? (g.getFirstName()
-                                + (g.getLastName() != null && !g.getLastName().isBlank() ? " " + g.getLastName()
-                                : ""))
-                                .trim()
+                                        + (g.getLastName() != null && !g.getLastName().isBlank() ? " " + g.getLastName()
+                                                : ""))
+                                        .trim()
                                 : "Unknown")
                 .guestPhone(g != null ? g.getPhone() : null)
                 .guestBadge(g != null ? resolveGuestBadge(g) : null)
@@ -927,6 +927,8 @@ public class ReservationServiceImpl implements ReservationService {
 
     private Guest buildInlineGuest(GuestRequest gd) {
         LocalDateTime now = LocalDateTime.now();
+        Long hotelId = loginUser != null ? loginUser.getHotelId() : null;
+        Hotel hotel = hotelRepository.findById(hotelId).orElse(null);
         return Guest.builder().title(gd.getTitle()).firstName(gd.getFirstName()).lastName(gd.getLastName())
                 .countryCode(gd.getCountryCode()).phone(gd.getPhone()).email(gd.getEmail())
                 .addressLine1(gd.getAddressLine1()).addressLine2(gd.getAddressLine2()).city(gd.getCity())
@@ -934,6 +936,7 @@ public class ReservationServiceImpl implements ReservationService {
                 .nationality(gd.getNationality()).gender(gd.getGender()).dateOfBirth(gd.getDateOfBirth())
                 .idProofType(gd.getIdProofType()).idProofNumber(gd.getIdProofNumber()).guestNotes(gd.getGuestNotes())
                 .preference(gd.getPreference()).isVip(gd.getIsVip() != null ? gd.getIsVip() : false).isActive(true)
+                .hotel(hotel)
                 .isDeleted(false).createdAt(now).updatedAt(now).build();
     }
 
@@ -1430,7 +1433,7 @@ public class ReservationServiceImpl implements ReservationService {
                                     .description(p.getDescription())
                                     .charges(p.getChargeAmount().compareTo(BigDecimal.ZERO) > 0
                                             ? p.getChargeAmount()
-                                            .add(p.getTaxAmount() != null ? p.getTaxAmount() : BigDecimal.ZERO)
+                                                    .add(p.getTaxAmount() != null ? p.getTaxAmount() : BigDecimal.ZERO)
                                             : null)
                                     .build());
                 }
