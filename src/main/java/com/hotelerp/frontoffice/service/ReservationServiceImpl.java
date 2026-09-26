@@ -1113,7 +1113,7 @@ public class ReservationServiceImpl implements ReservationService {
                 .roomId(room != null ? room.getId() : null).roomNumber(room != null ? room.getRoomNumber() : null)
                 .roomTypeName(room != null && room.getRoomType() != null ? room.getRoomType().getName() : null)
                 .floor(room != null && room.getFloor() != null ? room.getFloor().getFloorNumber() : null)
-                .photos(photoResponses)
+                .photos(null)
                 .checkInDate(b.getCheckInDate()).checkOutDate(b.getCheckOutDate()).numberOfNights(b.getNumberOfNights())
                 .ratePerNight(b.getRatePerNight()).ratePlanCharge(b.getRatePlanCharge()).totalPrice(b.getTotalPrice())
                 .discountPercentage(b.getDiscountPercentage()).discountAmount(b.getDiscountAmount())
