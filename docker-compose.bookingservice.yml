@@ -6,7 +6,7 @@ services:
     image: bookingservice:latest
     container_name: bookingservice
     ports:
-      - "9001:9001"
+      - "7001:7001"
     networks:
       - updated_orgadmin_rmscadminnetwork
     environment:
