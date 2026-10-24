@@ -63,7 +63,7 @@ pipeline {
                         -e MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=health,info,eureka,shutdown \
                         -e SPRING_DATASOURCE_URL='jdbc:mysql://mysql:3306/hms?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC' \
                         -e SPRING_DATASOURCE_USERNAME=root \
-                        -e SPRING_DATASOURCE_PASSWORD=root \
+                        -e SPRING_DATASOURCE_PASSWORD=Helixion2026 \
                         -e SPRING_JPA_HIBERNATE_DDL_AUTO=update \
                         ${IMAGE_NAME}:latest
                 """
